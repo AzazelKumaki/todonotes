@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>个人待办清单 · 交互原型 v2.6</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  background:#E9EDF2;display:flex;align-items:center;justify-content:center;padding:24px;gap:24px;flex-wrap:wrap}
+
+:root{
+  --q1:#DC2626; /* 重要且紧急 · 马上做 */
+  --q2:#2563EB; /* 重要不紧急 · 计划做 */
+  --q3:#F59E0B; /* 紧急不重要 · 快速处理 */
+  --q4:#94A3B8; /* 不紧急不重要 · 有空再说 */
+  --ink:#111827; --ink2:#475569; --ink3:#64748B; --ink4:#94A3B8;
+  --line:#E5E7EB; --line2:#CBD5E1; --card:#FFFFFF;
+  --reviewbg:#F1F5F9;
+}
+.theme-work{--brand:#2563EB;--brand2:#4F8FF7;--bg:#F8FAFC;--r:12px;--pad:14px;--rin:18px;--gap:8px;--soft:#EFF6FF;--brandink:#1D4ED8}
+.theme-life{--brand:#F2784B;--brand2:#FF9464;--bg:#FFFBF5;--r:24px;--pad:20px;--rin:28px;--gap:8px;--soft:#FEF1E7;--brandink:#C2410C}
+/* 第③栏「我的」：设置与域无关 —— 中性配色，不蓝也不珊瑚 */
+.theme-neutral{--brand:#64748B;--brand2:#94A3B8;--bg:#FFFFFF;--r:12px;--pad:14px;--rin:18px;--gap:8px;--soft:#F1F5F9;--brandink:#334155}
+
+/* ---------- 手机外壳 ---------- */
+.phone{width:390px;height:844px;background:var(--bg);border-radius:28px;overflow:hidden;
+  box-shadow:0 24px 60px rgba(15,23,42,.28);display:flex;flex-direction:column;position:relative;flex:none}
+.statusbar{height:62px;flex:none;display:flex;align-items:flex-start;padding:20px 24px 0;font-size:15px;
+  font-weight:600;color:var(--ink);position:relative}
+.sb-right{position:absolute;right:24px;top:25px;display:flex;gap:6px;align-items:center}
+.sb-right i{display:block;background:var(--ink);border-radius:1px}
+.sb-sig{width:18px;height:12px;display:flex;align-items:flex-end;gap:2px}
+.sb-sig i{width:3px}
+.sb-wifi{width:16px;height:12px;background:none!important;border:2px solid var(--ink);border-radius:2px;position:relative}
+.sb-wifi::after{content:"";position:absolute;left:3px;top:2px;width:6px;height:6px;border:2px solid var(--ink);border-radius:50%}
+.sb-bat{width:26px;height:13px;border:1.5px solid var(--ink);border-radius:3px;position:relative}
+.sb-bat::after{content:"";position:absolute;right:-3px;top:3px;width:2px;height:5px;background:var(--ink);border-radius:0 1px 1px 0}
+.sb-bat i{position:absolute;left:1.5px;top:1.5px;width:16px;height:7px;background:var(--ink);border-radius:1px}
+
+.view{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 16px 16px}
+.view::-webkit-scrollbar{width:0}
+.tabbar{flex:none;height:95px;display:flex;align-items:flex-start;justify-content:center;padding-top:12px;
+  background:var(--bg)}
+.tabcapsule{width:348px;height:62px;background:#fff;border:1px solid var(--line);border-radius:36px;
+  display:flex;padding:4px;box-shadow:0 4px 14px rgba(15,18,39,.08)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  border-radius:32px;font-size:13px;color:var(--ink4);cursor:pointer;background:none;border:none;
+  font-family:inherit;font-weight:500}
+.tab.on{background:linear-gradient(90deg,var(--brand2),var(--brand));color:#fff;font-weight:600;
+  box-shadow:0 6px 14px -4px rgba(0,0,0,.25)}
+.tab svg{width:20px;height:20px}
+
+/* ---------- 域切换器 ---------- */
+.switch{width:100%;height:56px;background:#fff;border:1px solid var(--line);border-radius:28px;padding:5px;
+  display:flex;gap:4px;margin-top:8px;box-shadow:0 4px 14px rgba(15,18,39,.08);flex:none}
+/* 灰色静态态：左右两半各占一边，都不可点 */
+.switch.neutral{background:#F1F5F9;border-color:#E2E8F0;box-shadow:none}
+.sw-half.neutral{color:#94A3B8;cursor:default}
+.sw-half{flex:1;border-radius:23px;display:flex;align-items:center;justify-content:center;gap:8px;
+  font-size:16px;border:none;cursor:pointer;font-family:inherit;color:var(--ink4);font-weight:500;background:none}
+.sw-half.on{background:linear-gradient(90deg,var(--brand2),var(--brand));color:#fff;font-weight:600;
+  box-shadow:0 6px 14px -4px rgba(0,0,0,.3)}
+.sw-half svg{width:20px;height:20px}
+
+/* ---------- 通用卡片 / 行 ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:var(--pad)}
+.row{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;
+  display:flex;align-items:center;gap:12px;cursor:pointer;width:100%;text-align:left;font-family:inherit}
+.grouptitle{font-size:13px;font-weight:600;color:var(--ink);margin:6px 2px 0}
+.stack{display:flex;flex-direction:column;gap:var(--gap);padding-top:12px}
+
+/* ---------- 输入框 ---------- */
+.inputbox{background:#fff;border:2px solid var(--brand);border-radius:var(--rin);padding:18px;
+  display:flex;align-items:flex-start;gap:12px}
+.inputbox textarea{flex:1;border:none;outline:none;resize:none;font-family:inherit;font-size:17px;
+  line-height:24px;color:var(--ink);background:none;min-height:48px}
+.inputbox textarea::placeholder{color:var(--ink4)}
+.aibtn{width:44px;height:44px;flex:none;border-radius:22px;background:var(--brand);border:none;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff}
+.hint{font-size:11px;color:var(--ink4);line-height:16px;padding:2px 4px 0}
+
+/* ---------- 条目行 ---------- */
+.item{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:var(--pad);
+  display:flex;align-items:center;gap:12px;cursor:pointer;width:100%;text-align:left;font-family:inherit}
+.circle{width:20px;height:20px;flex:none;border:1.5px solid var(--line2);border-radius:10px;position:relative;cursor:pointer}
+.circle::after{content:"";position:absolute;inset:-12px} /* 44px 热区 */
+.circle.done{background:var(--brand);border-color:var(--brand)}
+.circle.done::before{content:"";position:absolute;left:5px;top:3px;width:6px;height:10px;
+  border:2px solid #fff;border-top:0;border-left:0;transform:rotate(42deg)}
+.qbar{width:8px;height:42px;flex:none;border-radius:4px}
+.itxt{flex:1;min-width:0}
+.ititle{font-size:15px;font-weight:500;color:var(--ink);line-height:1.3}
+.isub{font-size:12px;color:var(--ink3);margin-top:4px}
+/* 标记完成后：整条转灰 + 沉到当日最下方，但不消失 */
+.item.done{background:#F8FAFC}
+.item.done .ititle{color:var(--ink4);text-decoration:line-through}
+.item.done .isub{color:var(--ink4)}
+.item.done .qbar{opacity:.45}
+
+/* ---------- 字段行 ---------- */
+.field{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;
+  align-items:center;gap:12px}
+button.field{width:100%;text-align:left;font-family:inherit;cursor:pointer}
+button.field:hover{background:#F8FAFC;border-color:var(--brand2)}
+.fname{font-size:13px;color:var(--ink3);width:72px;flex:none}
+.fval{flex:1;font-size:14px;font-weight:500;color:var(--ink)}
+.fact{font-size:12px;font-weight:500;color:var(--brand)}
+
+/* ---------- 悬浮按钮 ---------- */
+.fab{position:absolute;right:26px;bottom:120px;width:56px;height:56px;border-radius:28px;
+  background:var(--brand);border:none;color:#fff;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 6px 18px rgba(0,0,0,.28);cursor:pointer;z-index:20}
+.fab.badge::after{content:attr(data-n);position:absolute;top:-2px;right:-2px;min-width:24px;height:24px;
+  background:#DC2626;border-radius:12px;font-size:12px;font-weight:600;display:flex;align-items:center;
+  justify-content:center;padding:0 6px;border:2px solid var(--bg)}
+.fabplus{background:#fff;box-shadow:0 6px 16px rgba(15,23,42,.24)}
+
+/* ---------- 日历 ---------- */
+.calgrid{display:flex;flex-direction:column;gap:2px}
+.calweek{display:flex;gap:2px}
+.calhead{display:flex;gap:2px;margin-bottom:2px}
+.calhead div{width:46px;text-align:center;font-size:13px;color:var(--ink3)}
+.cell{width:46px;height:52px;border-radius:10px;padding:4px;display:flex;flex-direction:column;
+  align-items:center;gap:2px;cursor:pointer;border:none;background:none;font-family:inherit;position:relative}
+.cell.empty{cursor:default}
+.cellnum{font-size:13px;font-weight:500;color:var(--ink)}
+.cellstat{font-size:9px;color:var(--ink3);display:flex;align-items:center;gap:1px}
+.cellstat b{font-weight:400;font-size:9px}
+.cellstat i{font-style:normal;font-size:6px}
+.cell.hasreview{background:var(--reviewbg)}
+.cell.today{background:var(--soft);border:1.5px solid var(--brand)}
+.cell.today .cellnum{color:var(--brandink);font-weight:700}
+.cell.sel{outline:2px solid var(--brand)}
+.underline{width:22px;height:3px;border-radius:1.5px;background:#DC2626;margin-top:auto}
+
+/* ---------- 复盘 ---------- */
+.reviewbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px}
+.reviewtext{background:var(--reviewbg);border-radius:10px;padding:10px;font-size:13px;line-height:20px;color:var(--ink)}
+.reviewmeta{display:flex;justify-content:space-between;align-items:center;margin-top:8px;font-size:11px;color:var(--ink3)}
+.regen{border:1px solid var(--line2);background:none;border-radius:8px;padding:4px 10px;font-size:11px;
+  color:var(--ink2);cursor:pointer;font-family:inherit}
+
+/* ---------- 按钮 ---------- */
+.btn{flex:1;padding:12px;border-radius:10px;font-size:14px;font-family:inherit;cursor:pointer;border:none;
+  font-weight:600;background:var(--brand);color:#fff}
+.btn.ghost{background:none;border:1px solid var(--line2);color:var(--ink2);font-weight:500}
+.btnrow{display:flex;gap:10px}
+
+/* ---------- 输入 ---------- */
+.tin{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font-size:14px;
+  font-family:inherit;background:#fff;color:var(--ink);outline:none}
+.tin:focus{border-color:var(--brand)}
+.label{font-size:13px;color:var(--ink3);padding:2px 2px 0}
+.section{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.pagetitle{font-size:20px;font-weight:700;color:var(--ink);padding:4px 2px}
+.backrow{display:flex;align-items:center;gap:8px;padding:8px 0 0}
+.backbtn{width:20px;height:20px;border:none;background:none;cursor:pointer;color:var(--ink)}
+.segbar{display:flex;gap:8px;background:var(--soft);border-radius:10px;padding:10px;font-size:13px;color:var(--ink2)}
+.swatches{display:flex;gap:6px;align-items:center}
+.sw{width:14px;height:14px;border-radius:4px}
+.sw.w{background:#2563EB}.sw.l{background:#F2784B;border-radius:7px}
+.toast{position:absolute;left:50%;transform:translateX(-50%);bottom:130px;background:rgba(17,24,39,.92);
+  color:#fff;font-size:13px;padding:10px 16px;border-radius:20px;z-index:50;max-width:300px;text-align:center}
+.opt{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:10px;
+  background:#fff;cursor:pointer;font-size:14px;font-family:inherit;width:100%;text-align:left}
+.opt.on{border-color:var(--brand);background:var(--soft)}
+.radio{width:18px;height:18px;border:1.5px solid var(--line2);border-radius:9px;flex:none;position:relative}
+.opt.on .radio{border-color:var(--brand);background:var(--brand)}
+.opt.on .radio::after{content:"";position:absolute;left:4px;top:4px;width:8px;height:8px;background:#fff;border-radius:4px}
+.tagpill{font-size:11px;padding:3px 8px;border-radius:8px;background:var(--soft);color:var(--brandink)}
+.emptybox{text-align:center;color:var(--ink4);font-size:13px;padding:24px 0}
+
+/* ---------- A1 / A2 输入态 ---------- */
+.inputbox.focused{border-width:3px;box-shadow:0 0 0 4px var(--soft)}
+.kbd-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--soft);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--ink3)}
+.kbd-bar button{border:none;background:none;color:var(--brand);font-size:14px;font-weight:600;
+  cursor:pointer;font-family:inherit;flex:none}
+.screentag{display:inline-block;font-size:11px;color:var(--ink3);background:var(--soft);
+  border-radius:8px;padding:3px 10px;margin:10px 2px 0;font-weight:600}
+
+/* 日期选择用的小月历 */
+.dp-head{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px}
+.dp-head span{text-align:center;font-size:11px;color:var(--ink3)}
+.dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.dp-cell{aspect-ratio:1;border:none;background:none;border-radius:8px;font-size:12px;
+  color:var(--ink);cursor:pointer;font-family:inherit;padding:0}
+.dp-cell:hover{background:var(--soft)}
+.dp-cell.sel{background:var(--brand);color:#fff;font-weight:600}
+.dp-cell.today{outline:1px solid var(--brand2)}
+
+/* 分类颜色 / 符号选择器 */
+.sw-pick{width:28px;height:28px;border-radius:8px;border:none;cursor:pointer}
+.sw-sym{width:32px;height:32px;border-radius:8px;border:1px solid var(--line);background:#fff;
+  cursor:pointer;font-size:14px;color:var(--ink);font-family:inherit}
+/* 分类小徽章：emoji 本身是彩色的，改不动颜色 —— 所以把颜色作用在**底衬 + 左侧竖条**上 */
+.cat-chip{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;
+  justify-content:center;font-size:15px;flex:none}
+/* 长按拖起来排序 */
+.cat-row{transition:transform .12s}
+.cat-row.dragging{opacity:.55;transform:scale(1.03);box-shadow:0 10px 22px rgba(15,23,42,.22);
+  border-color:var(--brand);cursor:grabbing}
+
+/* ---------- 弹窗 ---------- */
+.modal-mask{position:absolute;inset:0;background:rgba(15,23,42,.45);z-index:60;display:flex;
+  align-items:center;justify-content:center;padding:24px}
+.modal{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:300px;
+  display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 40px rgba(0,0,0,.25)}
+.modal-t{font-size:16px;font-weight:600;color:var(--ink)}
+.modal-b{font-size:13px;line-height:20px;color:var(--ink2)}
+
+/* 桌面说明卡 */
+.notes{max-width:320px;font-size:13px;line-height:1.9;color:#334155;background:#fff;border-radius:16px;
+  padding:20px 22px;box-shadow:0 8px 24px rgba(15,23,42,.10)}
+.notes h3{font-size:15px;margin-bottom:8px;color:#0F172A}
+.notes code{background:#F1F5F9;padding:1px 5px;border-radius:4px;font-size:12px}
+</style>
+</head>
+<body class="theme-work">
+
+<div class="phone" id="phone">
+  <div class="statusbar">
+    <span id="clock">9:41</span>
+    <div class="sb-right">
+      <div class="sb-sig"><i style="height:4px"></i><i style="height:7px"></i><i style="height:10px"></i><i style="height:12px;opacity:.35"></i></div>
+      <div class="sb-wifi"></div><div class="sb-bat"><i></i></div>
+    </div>
+  </div>
+  <div class="view" id="view"></div>
+  <div class="tabbar" id="tabbar"></div>
+</div>
+
+<div class="notes">
+  <h3>可点的地方</h3>
+  • <b>一进来就是 A2</b>：输入框聚焦，六项字段面板直接展开在下面<br>
+  • 聚焦态三条路：直接【保存】→ 进收件箱 · 点 <code>✦</code> 解析后【保存】 · 手工填完【保存】<br>
+  • 退出 A2 回 A1：点【<b>再改改</b>】、点<b>输入框外任意处</b>、或按 <code>Esc</code><br>
+  • 顶部「工作 / 生活」切换 → 整站配色 + 数据都变<br>
+  • 记一笔：打字 → 点 <code>✦</code> 解析 → 面板展开 → 保存<br>
+  • 列表中：<b>点条目</b>进详情 · <b>点左边圆圈</b>只标完成<br>
+  • 标完成后<b>不会消失</b>：整条转灰、象限色条转灰、<b>排到当日最下方</b><br>
+  • 日历格里的 <code>3●2○</code> 会<b>跟着勾选实时变</b>；逾期数也同步减少<br>
+  • 右下角圆形按钮 = 收件箱（<b>配色跟着当前域变</b>）<br>
+  • 日历：点某天只显示<b>那天自己的事</b>（逾期项挂在它原定那天，不跟着跑到未来）<br>
+  • 标完成会记下<b>真实完成时刻</b>：翻回它原定那天能看到「完成于 10月15日 22:31」<br>
+  • 日历栏<b>没有悬浮 + 号</b>了 —— 点底部「记一笔」就是聚焦输入<br>
+  • A2 / 详情页：<b>每个字段整行都能点</b> · 选日期会<b>弹出月历</b>直接点，还能填时间<br>
+  • 日历页「<b>🔁 循环安排</b>」：可设每周 / 每月 / 每隔 N 天，属性照样记<br>
+  • 收件箱：点圆圈直接标完成；点条目 → 右上角 <code>✦</code> 单条解析 → 【保存】归类<br>
+  • 分类管理：整行可点编辑 · <b>长按可拖动排序</b>（顺序在选择时也生效）· 自定义颜色和符号<br>
+  • 分类器色作用在<b>淡色底衬 + 左侧竖条</b>上（emoji 本身保持原色，不突兀）<br>
+  • 选时间用<b>两个下拉</b>（点 / 分），不用手打<br>
+  • 我的：点顶部「<b>云同步</b>」卡片 → 就是云服务配置（唯一入口）<br>
+  • 导出备份 / 检查更新 → 会弹窗告诉你结果<br>
+  • 回收站可恢复 · 自定义背景图可分别换两个域<br>
+  • 本地自动备份<b>没有入口</b>：每次打开自动存本机
+</div>
+
+<script>
+/* ============ 数据 ============ */
+const CATS = {
+  work:['项目推进','会议沟通','报表材料','临时插单'],
+  life:['家人','健康运动','缴费账单','采购']
+};
+/* 分类的颜色与符号（可自定义） */
+const CAT_STYLE={};
+const PALETTE=['#DC2626','#F59E0B','#10B981','#2563EB','#8B5CF6','#EC4899','#0891B2','#64748B'];
+/* 符号用**具象物件**而不是几何图形 —— 一眼就知道这堆是什么事 */
+const SYMBOLS=['💼','📊','📝','🖊️','📎','🗂️','💻','📈','🎯','📌','☎️','🧾','🔧','💡',
+               '🏠','👨‍👩‍👧','❤️','🏃','🍎','🚗','💰','🛒','🧹','⏰'];
+function catStyle(name){
+  if(!CAT_STYLE[name]){
+    const i=Object.keys(CAT_STYLE).length;
+    CAT_STYLE[name]={color:PALETTE[i%PALETTE.length], symbol:SYMBOLS[i%SYMBOLS.length]};
+  }
+  return CAT_STYLE[name];
+}
+/* hex → rgba，用来做淡底 */
+function hexA(hex,a){
+  const h=hex.replace('#','');
+  return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${a})`;
+}
+/* 分类徽章：淡色底 + 左侧 3px 实心竖条，emoji 保持原色（不突兀又能区分） */
+function catChip(name){
+  const st=catStyle(name);
+  return `<span class="cat-chip" style="background:${hexA(st.color,.14)};box-shadow:inset 3px 0 0 ${st.color}">${st.symbol}</span>`;
+}
+function catOpts(dm){
+  return CATS[dm].map(c=>[c,c,catChip(c)]);
+}
+/* ---------- 日期与时刻：一律取真实系统时间，不再写死 ---------- */
+const fmtD=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const nowHM=()=>{const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
+const nowStamp=()=>fmtD(new Date())+' '+nowHM();
+const shift=n=>{const d=new Date();d.setDate(d.getDate()+n);return fmtD(d);};
+
+/* ---------- M1 存储层（唯一负责读写的模块）----------
+   换 IndexedDB、或日后加云同步，都只改这一个地方，业务代码不动 */
+const DB={
+  KEY:'todo.v0.1',
+  load(){ try{ const s=localStorage.getItem(DB.KEY); return s?JSON.parse(s):null; }catch(e){ return null; } },
+  save(){ try{ localStorage.setItem(DB.KEY, JSON.stringify({v:1,todos,CATS,CAT_STYLE,reviews})); }catch(e){} }
+};
+
+let uid = 100;
+/* 数据模型（M1 补全）：
+   imp / urg = 三态（null 未判断，true/false 用户选择），**存两个字段**，界面合并成一个四象限选择器；
+   manual = 哪些字段是人工改过的（重新解析不得覆盖）；
+   createdAt / updatedAt / source / parsed = 冲突判定与统计的依据 */
+const T = (o)=>Object.assign({id:++uid,done:false,imp:null,urg:null,cat:null,due:null,time:'',
+  remark:'',domain:null,pinned:false,inbox:false,deleted:false,doneAt:null,
+  createdAt:nowStamp(),updatedAt:nowStamp(),source:'text',manual:{},parsed:false},o);
+
+/* 首次启动写入的种子数据（相对今天生成，之后一律以本机数据为准，不再重置） */
+function seed(){
+  return [
+    T({title:'把季度报表交给王总',imp:true,urg:true,due:shift(-1),time:'15:00',cat:'报表材料',domain:'work',parsed:true,
+       remark:'明天下午3点前把季度报表交给王总，这个挺重要的'}),
+    T({title:'回复客户报价邮件',imp:false,urg:true,due:shift(0),cat:'临时插单',domain:'work',parsed:true,remark:'客户那边催着要报价，尽快发过去'}),
+    T({title:'项目评审会',imp:true,urg:true,due:shift(0),time:'10:00',cat:'会议沟通',domain:'work',parsed:true,remark:'项目评审会'}),
+    T({title:'写周报',imp:true,urg:false,due:shift(0),time:'18:00',cat:'项目推进',domain:'work',parsed:true,remark:'写周报'}),
+    T({title:'整理桌面',imp:false,urg:false,due:shift(0),domain:'work',parsed:true,remark:'整理桌面'}),
+    T({title:'陪家人吃饭',imp:true,urg:false,due:shift(0),time:'19:00',cat:'家人',domain:'life',parsed:true,remark:'陪家人吃饭'}),
+    T({title:'交电费',imp:false,urg:true,due:shift(1),cat:'缴费账单',domain:'life',parsed:true,remark:'有空的时候去交一下电费'}),
+    T({title:'季度复盘会',imp:true,urg:false,due:shift(5),cat:'会议沟通',domain:'work',parsed:true,remark:'季度复盘会'}),
+    T({title:'体检预约',imp:true,urg:false,due:shift(8),cat:'健康运动',domain:'life',parsed:true,remark:'体检预约'}),
+    /* 收件箱：未解析，只有原话。imp / urg 用 null 表示"还没判断" */
+    T({title:'',inbox:true,domain:null,imp:null,urg:null,remark:'下周三之前把年报的初稿发给李经理看看'}),
+    T({title:'',inbox:true,domain:null,imp:null,urg:null,remark:'记得买牛奶和鸡蛋'}),
+    T({title:'',inbox:true,domain:null,imp:null,urg:null,remark:'车该保养了，找个时间去一趟'}),
+    /* 回收站里的一条（软删除） */
+    T({title:'旧版需求讨论会',imp:false,urg:false,domain:'work',deleted:true,due:shift(-6),cat:'会议沟通',remark:'旧版需求讨论会'}),
+  ];
+}
+
+let todos = [];
+let reviews = {};   /* M1：复盘保持空壳 —— 不生成任何内容，不放假文案 */
+
+/* ============ 状态 ============ */
+const S = {
+  tab:'note',            // note | calendar | me
+  domain:'work',         // work | life
+  focused:true,          // 输入框是否聚焦 —— true = A2 输入态，false = A1 默认首屏
+  sub:null,              // 二级页：inbox | detail | ai | cats | cloud
+  parse:null,            // 解析结果
+  input:'',
+  detailId:null,
+  day:'',                 // 当前查看的日期（'YYYY-MM-DD'）
+  calY:null, calM:null,   // 日历当前显示的年月（启动时填今天）
+  inboxFrom:'work',      // 进入收件箱时的域（决定配色）
+  cloud:{ep:'',env:'',key:'',pwd:''},
+  provider:'builtin',
+  cloudOn:false,
+};
+
+/* ============ 工具 ============ */
+const TODAY=fmtD(new Date());          /* M1：真实系统日期，不再写死 '2026-10-15' */
+/* M1：四象限（重不重要 × 急不急）—— 存储仍是 imp / urg 两个字段，界面合并成一个选择器 */
+const quadText=(imp,urg)=> (imp==null||urg==null)?''
+  : ((imp&&urg)?'马上做':(imp?'计划做':(urg?'快速处理':'有空再说')));
+const quadKey=(imp,urg)=> (imp==null||urg==null)?'':((imp?'1':'0')+(urg?'1':'0'));
+const QUADS=[['11','马上做','var(--q1)'],['10','计划做','var(--q2)'],
+             ['01','快速处理','var(--q3)'],['00','有空再说','var(--q4)'],['','— 未判断 —','var(--q4)']];
+const qcolor = t => (t.imp&&t.urg)?'var(--q1)':(t.imp?'var(--q2)':(t.urg?'var(--q3)':'var(--q4)'));
+const qname  = t => (t.imp&&t.urg)?'马上做':(t.imp?'计划做':(t.urg?'快速处理':'有空再说'));
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const overdue = t => !t.done && t.due && t.due < TODAY;
+const daysLate = t => {const a=new Date(t.due),b=new Date(TODAY);return Math.round((b-a)/864e5);};
+const listTodos = () => todos.filter(t=>!t.inbox && t.domain===S.domain && !t.deleted);
+const inboxTodos = () => todos.filter(t=>t.inbox && !t.deleted);
+
+function fmtSub(t){
+  /* 收件箱里还没解析的：提示去补字段 */
+  if(t.inbox && !t.title) return '未解析 · 点进去补充字段';
+  /* 已完成：显示真实完成时刻，而不是原定时间 */
+  if(t.done && t.doneAt)
+    return '完成于 '+t.doneAt.slice(5).replace('-','月')+'日 '+t.doneAt.slice(11,16)+(t.cat?' · '+t.cat:'');
+  const p=[];
+  if(overdue(t)) p.push('逾期 '+daysLate(t)+' 天');
+  else if(t.due===TODAY && t.time) p.push(t.time);
+  else if(t.due) p.push(t.due.slice(5).replace('-','月')+'日');
+  if(t.cat) p.push(t.cat);
+  return p.join(' · ')||'无时间 · 未归类';
+}
+
+/* 排序（v2.8 拍板口径）：置顶 > **逾期组**（组内按象限）> 正常四象限 > 已完成沉底 */
+function sortList(arr){
+  const q=t=>(t.imp&&t.urg?0:(t.imp?1:(t.urg?2:3)));
+  return [...arr].sort((a,b)=>{
+    if(a.pinned!==b.pinned) return a.pinned?-1:1; // ① 置顶最优先（哪怕它已完成）
+    if(a.done!==b.done) return a.done?1:-1;      // ⑤ 已完成沉到最下方，但仍显示
+    const od=(overdue(b)?1:0)-(overdue(a)?1:0);  // ② 逾期组整体提前
+    if(od) return od;
+    if(q(a)!==q(b)) return q(a)-q(b);            // ③ 组内（含逾期组）再按象限 ①②③④
+    return String(a.due||'9999').localeCompare(String(b.due||'9999')); // ④ 同象限按日期
+  });
+}
+/* 某天的完成 / 未完成统计（日历格实时读它，随勾选变化）—— M1 按真实日期 key */
+function dayStat(key){
+  const l=todos.filter(t=>!t.deleted&&!t.inbox&&t.domain===S.domain&&t.due===key);
+  return {done:l.filter(t=>t.done).length, undone:l.filter(t=>!t.done).length, total:l.length};
+}
+/* 这天是否有"原定在这天、但还没做"的事（红下划线） */
+function dayOverdue(key){
+  return key<TODAY && todos.some(t=>!t.deleted&&!t.inbox&&t.domain===S.domain&&t.due===key&&!t.done);
+}
+
+/* ============ 渲染入口 ============ */
+function render(keep){
+  DB.save();   /* M1：任何一次改动都先落盘，关掉再打开还在 */
+  // 先记住滚动位置：勾一条完成后不该把页面弹回顶部
+  const _v0=document.getElementById('view');
+  const _top=_v0?_v0.scrollTop:0;
+  // 第③栏「我的」= 中性主题（设置与域无关）；收件箱沿用进入时的域
+  document.body.className = 'theme-' + (S.tab==='me' ? 'neutral'
+    : (S.sub==='inbox' ? S.inboxFrom : S.domain));
+  const v=document.getElementById('view'), tb=document.getElementById('tabbar');
+  document.getElementById('phone').querySelectorAll('.fab').forEach(e=>e.remove());
+
+  const isSub = !!S.sub;
+  tb.style.display = isSub ? 'none' : 'flex';
+  tb.innerHTML = isSub ? '' : tabbarHTML();
+  v.innerHTML = isSub ? subHTML() : mainHTML();
+  if(!isSub) fabHTML();
+  v.scrollTop = keep ? _top : 0;   /* keep=true 用于"原地更新"（勾选完成、改字段等） */
+  // PRD 硬规则：打开即落在「记一笔」且输入框自动聚焦（= 直接进入 A2 输入态）
+  if(!isSub && S.tab==='note' && S.focused){
+    const el=document.getElementById('qi');
+    if(el){ el.focus(); try{const n=el.value.length; el.setSelectionRange(n,n);}catch(e){} }
+  }
+}
+
+function tabbarHTML(){
+  const t=(id,label,icon)=>`<button class="tab ${S.tab===id?'on':''}" data-act="tab" data-v="${id}">${icon}<span>${label}</span></button>`;
+  return `<div class="tabcapsule">
+    ${t('note','记一笔','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>')}
+    ${t('calendar','日历','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>')}
+    ${t('me','我的','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>')}
+  </div>`;
+}
+
+function switchHTML(){
+  const half=(k,label,icon)=>`<button class="sw-half ${S.domain===k?'on':''}" data-act="domain" data-v="${k}">${icon}<span>${label}</span></button>`;
+  return `<div class="switch">
+    ${half('work','工作','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg>')}
+    ${half('life','生活','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>')}
+  </div>`;
+}
+
+function switchNeutralHTML(){
+  const half=(label,icon)=>`<span class="sw-half neutral">${icon}<span>${label}</span></span>`;
+  return `<div class="switch neutral">
+    ${half('工作','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg>')}
+    ${half('生活','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>')}
+  </div>`;
+}
+
+function mainHTML(){
+  if(S.tab==='note')     return noteHTML();
+  if(S.tab==='calendar') return calendarHTML();
+  return meHTML();
+}
+
+function subHTML(){
+  switch(S.sub){
+    case 'inbox':  return inboxHTML();
+    case 'detail': return detailHTML();
+    case 'ai':     return aiHTML();
+    case 'cats':   return catsHTML();
+    case 'cloud':  return cloudHTML();
+    case 'day':    return dayHTML();
+    case 'trash':  return trashHTML();
+    case 'bg':     return bgHTML();
+  }
+}
+
+/* ============ 回收站（软删除 30 天可恢复） ============ */
+function trashHTML(){
+  const items=todos.filter(t=>t.deleted);
+  const backRow=`<div class="backrow"><button class="backbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button></div>`;
+  return `${backRow}
+    <div class="pagetitle">回收站</div>
+    <div class="stack">
+      <div class="hint">删掉的东西在这里躺 30 天，到期自动清理 · 恢复后回到原来的域和分类</div>
+      ${items.length?items.map(t=>`<div class="row" style="cursor:default">
+        <span class="qbar" style="background:${qcolor(t)};height:32px"></span>
+        <span style="flex:1">
+          <span style="display:block;font-size:15px;color:var(--ink)">${esc(t.title||t.remark.slice(0,12))}</span>
+          <span style="display:block;font-size:11px;color:var(--ink3);margin-top:3px">${t.domain?(t.domain==='work'?'工作':'生活'):'未归类'}${t.cat?' · '+t.cat:''} · 30 天内可恢复</span>
+        </span>
+        <button class="regen" data-act="restore" data-v="${t.id}">恢复</button>
+      </div>`).join(''):'<div class="emptybox">回收站是空的</div>'}
+    </div>`;
+}
+
+/* ============ 自定义背景图 ============ */
+function bgHTML(){
+  const backRow=`<div class="backrow"><button class="backbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button></div>`;
+  const card=(d,label,ph,tip)=>`<div class="section" style="gap:8px">
+    <div class="label">${label}</div>
+    <div style="height:120px;border-radius:12px;background:${ph};display:flex;align-items:flex-end;justify-content:flex-end;padding:8px">
+      <button class="regen" style="background:#fff" data-act="pickbg" data-v="${d}">更换图片</button>
+    </div>
+    <div class="hint">${tip}</div>
+  </div>`;
+  return `${backRow}
+    <div class="pagetitle">自定义背景图</div>
+    <div class="stack">
+      ${card('work','工作域背景','linear-gradient(160deg,#DBEAFE,#93C5FD)','会叠一层浅色遮罩，保证白底卡片和文字都读得清')}
+      ${card('life','生活域背景','linear-gradient(160deg,#FFEDD5,#FDBA74)','图片只存本机，不上传云端 —— 不占同步额度、不耗流量')}
+      <div class="hint">两个域各一张，切域时背景跟着换，是「一眼分辨工作 / 生活」最强的一招</div>
+    </div>`;
+}
+
+/* ============ 新建分类（自定义名称 / 颜色 / 符号） ============ */
+function renderNewCat(){
+  const p=document.getElementById('phone');
+  p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+  const nc=S._newcat; if(!nc) return;
+  const isEdit=!!nc.old;
+  const d=document.createElement('div'); d.className='modal-mask'; d.dataset.act='closemodal';
+  d.innerHTML=`<div class="modal" data-act="noop">
+    <div class="modal-t">${isEdit?'编辑分类':'新建'+(nc.domain==='work'?'工作':'生活')+'分类'}</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="cat-chip" style="background:${hexA(nc.color,.14)};box-shadow:inset 3px 0 0 ${nc.color}">${nc.symbol}</span>
+      <input class="tin" id="_nc" value="${esc(nc.name)}" placeholder="分类名，比如「周会」" style="flex:1">
+    </div>
+    <div class="label">颜色</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${PALETTE.map(c=>`<button class="sw-pick" data-act="nccolor" data-v="${c}"
+        style="background:${c};${nc.color===c?'outline:2px solid #334155;outline-offset:2px':''}"></button>`).join('')}
+    </div>
+    <div class="label">符号</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${SYMBOLS.map(s=>`<button class="sw-sym" data-act="ncsym" data-v="${s}"
+        style="${nc.symbol===s?'border-color:var(--brand);background:var(--soft)':''}">${s}</button>`).join('')}
+    </div>
+    ${isEdit?`<button class="btn ghost" data-act="ncdel"
+      style="color:#DC2626;border-color:#FECACA;background:#FEF2F2">删除分类（其下待办不删，改为未分类）</button>`:''}
+    <div class="btnrow">
+      <button class="btn ghost" data-act="closemodal">取消</button>
+      <button class="btn" data-act="ncsave">${isEdit?'保存':'创建'}</button>
+    </div></div>`;
+  p.appendChild(d);
+}
+function openNewCat(d){
+  S._newcat={domain:d,name:'',color:PALETTE[0],symbol:SYMBOLS[0]};
+  renderNewCat();
+  setTimeout(()=>document.getElementById('_nc')?.focus(),30);
+}
+function openEditCat(name){
+  const st=catStyle(name);
+  S._newcat={domain:CATS.work.includes(name)?'work':'life', name:name, old:name,
+             color:st.color, symbol:st.symbol};
+  renderNewCat();
+}
+
+/* ============ 循环安排（每周 / 每月 / 每隔 N 天） ============ */
+function syncRecur(){
+  if(!S._recur) return;
+  const g=id=>document.getElementById(id);
+  if(g('_rt'))  S._recur.title=g('_rt').value;
+  if(g('_rmd')) S._recur.md=+g('_rmd').value||1;
+  if(g('_rev')) S._recur.every=+g('_rev').value||1;
+  if(g('_rtm')) S._recur.time=g('_rtm').value;
+}
+function openRecur(){
+  const p=document.getElementById('phone');
+  p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+  if(!S._recur) S._recur={title:'',mode:'week',wd:1,md:1,every:3,time:'',imp:false,urg:false,cat:null};
+  const r=S._recur, wdName=['一','二','三','四','五','六','日'];
+  const d=document.createElement('div'); d.className='modal-mask'; d.dataset.act='closemodal';
+  d.innerHTML=`<div class="modal" data-act="noop" style="max-height:660px;overflow:auto">
+    <div class="modal-t">循环安排</div>
+    <input class="tin" id="_rt" value="${esc(r.title)}" placeholder="比如「周会」">
+    <div class="label">重复方式</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${[['week','每周'],['month','每月'],['every','每隔 N 天']].map(m=>
+        `<button class="opt ${r.mode===m[0]?'on':''}" data-act="rcmode" data-v="${m[0]}"><span class="radio"></span><span>${m[1]}</span></button>`).join('')}
+    </div>
+    ${r.mode==='week'?`<div class="label">星期几</div><div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${wdName.map((w,i)=>`<button class="sw-sym" data-act="rcwd" data-v="${i+1}"
+        style="${r.wd===i+1?'border-color:var(--brand);background:var(--soft)':''}">${w}</button>`).join('')}</div>`:''}
+    ${r.mode==='month'?`<div class="label">每月几号</div>
+      <input class="tin" id="_rmd" type="number" min="1" max="31" value="${r.md}">`:''}
+    ${r.mode==='every'?`<div class="label">每隔几天</div>
+      <input class="tin" id="_rev" type="number" min="1" value="${r.every}">`:''}
+    <div class="label">时间（可留空）</div>
+    <input class="tin" id="_rtm" value="${esc(r.time)}" placeholder="10:00">
+    <div class="label">属性</div>
+    <div style="display:flex;gap:6px">
+      <button class="opt ${r.imp?'on':''}" data-act="rcimp" style="flex:1"><span class="radio"></span><span>重要</span></button>
+      <button class="opt ${r.urg?'on':''}" data-act="rcurg" style="flex:1"><span class="radio"></span><span>紧急</span></button>
+    </div>
+    <div class="label">分类</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${CATS[S.domain].map(c=>`<button class="sw-sym" data-act="rccat" data-v="${c}"
+        style="width:auto;padding:0 10px;display:flex;align-items:center;gap:6px;${r.cat===c?'border-color:var(--brand);background:var(--soft)':''}">${catChip(c)}<span>${c}</span></button>`).join('')}
+    </div>
+    <div class="btnrow">
+      <button class="btn ghost" data-act="closemodal">取消</button>
+      <button class="btn" data-act="rcsave">创建</button>
+    </div></div>`;
+  p.appendChild(d);
+  setTimeout(()=>document.getElementById('_rt')?.focus(),30);
+}
+function genRecur(){
+  syncRecur();
+  const r=S._recur; if(!r || !r.title.trim()){ toast('先给它起个名字'); return; }
+  const base=new Date(TODAY+'T00:00:00'); let dates=[];
+  if(r.mode==='week'){
+    const cur=base.getDay()||7; let diff=(r.wd-cur+7)%7; if(diff===0) diff=7;
+    for(let i=0;i<3;i++){ const x=new Date(base); x.setDate(x.getDate()+diff+i*7); dates.push(fmtD(x)); }
+  } else if(r.mode==='month'){
+    for(let i=0;i<3;i++){
+      const y=base.getFullYear(), m=base.getMonth()+i;
+      const last=new Date(y,m+1,0).getDate();
+      const x=new Date(y,m,Math.min(r.md,last));
+      if(x>=base) dates.push(fmtD(x));
+    }
+  } else {
+    for(let i=1;i<=3;i++){ const x=new Date(base); x.setDate(x.getDate()+r.every*i); dates.push(fmtD(x)); }
+  }
+  dates.forEach(dt=>{
+    todos.push(T({title:r.title.trim(),due:dt,time:r.time,imp:r.imp,urg:r.urg,
+      cat:r.cat,domain:S.domain,remark:r.title.trim(),recur:true}));
+  });
+  document.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+  const name=r.title.trim(), n=dates.length, first=dates[0]||'';
+  S._recur=null;
+  toast(`已创建「${name}」· 先排了 ${n} 次，从 ${first.slice(5)} 开始`);
+  render();
+}
+
+/* ============ 弹窗 ============ */
+function modal(title,body){
+  const p=document.getElementById('phone');
+  p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+  const d=document.createElement('div'); d.className='modal-mask'; d.dataset.act='closemodal';
+  d.innerHTML=`<div class="modal" data-act="noop">
+    <div class="modal-t">${title}</div>
+    <div class="modal-b">${body}</div>
+    <button class="btn" data-act="closemodal">知道了</button></div>`;
+  p.appendChild(d);
+}
+
+/* ============ ① 记一笔 ============ */
+function noteHTML(){
+  const od = sortList(listTodos().filter(overdue));
+  /* 今天完成的（哪怕原定日期更早）也要留在首页，沉在底部 */
+  const today = sortList(listTodos().filter(t=>t.due===TODAY || (t.done&&t.doneAt&&t.doneAt.startsWith(TODAY))));
+  return `${switchHTML()}
+  <div class="stack">
+    <span class="screentag">${S.focused?'A2 · 记一笔（输入态 · 已聚焦）':'A1 · 记一笔（默认首屏 · 未聚焦）'}</span>
+    <div class="inputbox ${S.focused?'focused':''}" data-act="focus">
+      <textarea id="qi" rows="2" placeholder="说点什么…" autofocus>${esc(S.input)}</textarea>
+      <button class="aibtn" data-act="parse" title="AI 解析">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.7L19.6 9l-5.7 1.3L12 16l-1.9-5.7L4.4 9l5.7-1.3z"/><path d="M18.5 15l.8 2.4 2.2.8-2.2.8-.8 2.4-.8-2.4-2.2-.8 2.2-.8z"/></svg>
+      </button>
+    </div>
+    ${S.focused ? parseHTML() : ''}
+    <div class="hint">聚焦时<b>五项字段</b>就在下面（重要 + 紧急已合并成「轻重缓急」）：可直接点【保存】（四项没填全就进收件箱）· 点 ✦ 解析后再保存 · 点【再改改】或框外任意处退出</div>
+    <div class="hint">点条目 = 进详情 · 点左边圆圈 = 直接标为完成，不进详情</div>
+    ${od.length?`<div style="display:flex;gap:6px;align-items:center;color:#DC2626;font-size:13px;font-weight:600;padding:6px 2px 0">
+       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+       逾期 ${od.length} 件</div>`:''}
+    ${od.map(itemHTML).join('')}
+    <div class="grouptitle" style="margin-top:6px">今天</div>
+    ${today.length?today.map(itemHTML).join(''):'<div class="emptybox">今天没有安排</div>'}
+    <div class="hint">更远日期的事项去「日历」里看 · 首屏只放逾期和今天，<b>放不下可以下滑</b>（不再折叠）</div>
+  </div>`;
+}
+
+function parseHTML(){
+  const p=S.parse||{}, has=!!S.parse;
+  /* 整行可点 → 弹选择/输入；不再有「改」字 */
+  const f=(key,n,v)=>`<button class="field" data-act="field" data-v="${key}">
+    <span class="fname">${n}</span>
+    <span class="fval" style="${v?'':'color:var(--ink4)'}">${esc(v||'—')}</span>
+    <span class="fact">${v?'▾':'＋'}</span></button>`;
+  /* data-act="noop" 让面板内部的点击不会误判成"点框外"而退出聚焦 */
+  return `<div class="section" style="border-color:var(--brand)" data-act="noop">
+    <div class="hint" style="padding:0">${has
+      ? '✦ 解析好了 · 点任意一行都能改'
+      : '点任意一行手工填 · 或直接【保存】让它进收件箱'}</div>
+    ${f('title','标题',p.title)}
+    ${f('due','完成时间',p.dueText)}
+    ${f('quad','轻重缓急',quadText(p.imp,p.urg))}
+    ${f('domain','归属',p.domain?(p.domain==='work'?'工作':'生活'):'')}
+    ${f('cat','分类',p.cat)}
+    <div class="btnrow">
+      <button class="btn" data-act="save">保存</button>
+      <button class="btn ghost" data-act="cancel">再改改</button>
+    </div>
+  </div>`;
+}
+
+function itemHTML(t){
+  return `<button class="item ${t.done?'done':''}" data-act="open" data-v="${t.id}">
+    <span class="circle ${t.done?'done':''}" data-act="toggle" data-v="${t.id}"></span>
+    <span class="qbar" style="background:${t.done?'var(--q4)':qcolor(t)}"></span>
+    <span class="itxt">
+      <span class="ititle">${t.pinned?'📌 ':''}${esc(t.title||t.remark.slice(0,12))}</span>
+      <span class="isub">${esc(fmtSub(t))}</span>
+    </span>
+  </button>`;
+}
+
+/* ============ 收件箱 A4（配色随进入时的域） ============ */
+function inboxHTML(){
+  /* 不再分组，全部放一起；已完成的沉到底部 */
+  const items=sortList(inboxTodos());
+  const undone=items.filter(t=>!t.done).length;
+  return `<div class="backrow">
+      <button class="backbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+    </div>
+    <div class="pagetitle">收件箱</div>
+    <div class="stack">
+      <div class="segbar">
+        <span class="swatches"><i class="sw w"></i><i class="sw l"></i></span>
+        <span>同一个收件箱，两套配色：从工作域进 = 冷蓝，从生活域进 = 暖珊瑚（内容完全一致）</span>
+      </div>
+      <div class="segbar" data-act="reparseall" style="background:#FEF3C7;color:#92400E;cursor:pointer">
+        <span>有 ${undone} 条待整理 · 点这里一键重新解析</span>
+      </div>
+      ${items.length?items.map(itemHTML).join(''):'<div class="emptybox">收件箱是空的</div>'}
+      <div class="hint">点左边圆圈可直接标完成（<b>计入今天的完成</b>）· 点条目进详情，<b>标题 / 完成时间 / 轻重缓急 / 归属 四项填全</b>后点【保存】即归入该域（分类选填）</div>
+    </div>`;
+}
+
+/* ============ ② 日历 B1 ============ */
+function calendarHTML(){
+  const y=S.calY, m=S.calM;                       /* M1：真实年月，可左右翻月 */
+  const first=(new Date(y,m,1).getDay()||7)-1;    // 周一为一周起点
+  const days=new Date(y,m+1,0).getDate();
+  let html='', buf=[];
+  const flush=()=>{ if(buf.length){ html+='<div class="calweek">'+buf.join('')+'</div>'; buf=[]; } };
+  for(let i=0;i<first;i++) buf.push('<div class="cell empty"></div>');
+  for(let d=1;d<=days;d++){
+    const key=fmtD(new Date(y,m,d));
+    const st=dayStat(key);
+    const isToday=key===TODAY, hasOd=dayOverdue(key), hasRv=!!reviews[key];
+    buf.push(`<button class="cell ${hasRv?'hasreview':''} ${isToday?'today':''} ${S.day===key?'sel':''}" data-act="day" data-v="${key}">
+        <span class="cellnum">${d}</span>
+        ${st.total?`<span class="cellstat"><b>${st.done}</b><i>●</i><b>${st.undone}</b><i>○</i></span>`:'<span class="cellstat"></span>'}
+        ${hasOd?'<span class="underline"></span>':''}
+      </button>`);
+    if(buf.length===7) flush();
+  }
+  flush();
+  const grid=`<div class="calhead">${['一','二','三','四','五','六','日'].map(d=>`<div>${d}</div>`).join('')}</div>
+    <div class="calgrid">${html}</div>`;
+  return `${switchHTML()}
+  <div class="stack">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 2px 0">
+      <span style="font-size:18px;font-weight:600">${y} 年 ${m+1} 月</span>
+      <span style="display:flex;gap:8px">
+        <button class="btn ghost" data-act="calm" data-v="-1" style="flex:none;padding:4px 14px">‹</button>
+        <button class="btn ghost" data-act="calm" data-v="1" style="flex:none;padding:4px 14px">›</button>
+      </span>
+    </div>
+    <button class="row" data-act="recur" style="padding:10px 12px">
+      <span style="font-size:16px;flex:none">🔁</span>
+      <span style="flex:1;font-size:14px;color:var(--ink)">循环安排 · 周会 / 每月缴费 / 每隔几天</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
+    ${grid}
+    <div class="hint">色条：红=马上做 · 蓝=计划做 · 橙=快速处理 · 灰=有空再说</div>
+    <div class="hint">标记：<b>●</b> 已完成 / <b>○</b> 未完成 · 红下划线 = 当天有逾期 · 灰底 = 这天有总结</div>
+    <div class="hint">点某一天 → 展开当天明细；点条目 = 进详情，点圆圈 = 标完成</div>
+  </div>`;
+}
+
+/* ============ B2 当天明细 ============ */
+function dayHTML(){
+  const key=S.day||TODAY;
+  const dt=new Date(key+'T00:00:00');
+  const wd=['周日','周一','周二','周三','周四','周五','周六'][dt.getDay()];
+  /* 逾期条目只挂在它自己那天（原定日期），不跟着跑到未来每一天 */
+  const all=sortList(listTodos().filter(t=>t.due===key));
+  return `<div class="backrow">
+      <button class="backbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+    </div>
+    <div style="font-size:18px;font-weight:600;padding:8px 2px 0">${dt.getMonth()+1} 月 ${dt.getDate()} 日 · ${wd}</div>
+    <div class="stack">
+      <div class="reviewbox">
+        <div style="font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:8px">当天复盘 · 工作 + 生活合并成一句话</div>
+        <div class="reviewtext" style="color:var(--ink4)">配置 AI 后自动生成 —— M1 不做复盘，这里不放假内容</div>
+      </div>
+      <div class="hint">点条目 = 进详情 · 点左边圆圈 = 标为完成，不进详情</div>
+      ${all.length?all.map(itemHTML).join(''):'<div class="emptybox">这天没有事项</div>'}
+    </div>`;
+}
+
+/* ============ B3 待办详情 ============ */
+function detailHTML(){
+  const t=todos.find(x=>x.id===S.detailId); if(!t) return '';
+  /* 每个字段独立判断是否"已设置"：imp/urg 用 null 表示没填过，不能拿标题有没有值来代替 */
+  const f=(key,n,v)=>`<button class="field" data-act="dfield" data-v="${key}">
+    <span class="fname">${n}</span>
+    <span class="fval" style="${v?'':'color:var(--ink4)'}">${esc(v||'— 待填 —')}</span>
+    <span class="fact">${v?'▾':'＋'}</span></button>`;
+  /* 收件箱条目：右上角放单条解析，与首页 ✦ 的位置对应 */
+  const aiBtn=`<button class="aibtn" data-act="parseone" title="解析这一条" style="width:36px;height:36px;border-radius:18px">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.9 5.7L19.6 9l-5.7 1.3L12 16l-1.9-5.7L4.4 9l5.7-1.3z"/><path d="M18.5 15l.8 2.4 2.2.8-2.2.8-.8 2.4-.8-2.4-2.2-.8 2.2-.8z"/></svg></button>`;
+  return `<div class="backrow" style="justify-content:space-between">
+      <button class="backbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+      ${t.inbox?aiBtn:''}
+    </div>
+    <div class="stack">
+      <button class="field" data-act="dfield" data-v="title" style="padding:12px">
+        <span class="fval" style="font-size:16px;font-weight:600">${esc(t.title||t.remark.slice(0,12))}</span>
+        <span class="fact">▾</span></button>
+      <div class="hint">${t.inbox
+        ? '这几项目前是空的 · 点右上角「✦」让 AI 从原话拆出来，或点任意一行手工填，填好后点【保存】归入分类'
+        : '点任意一行都能改'}</div>
+      ${f('quad','轻重缓急',quadText(t.imp,t.urg))}
+      ${f('due','完成时间',t.due?t.due.slice(5).replace('-','月')+'日'+(t.time?' '+t.time:''):'')}
+      ${f('domain','归属',t.domain?(t.domain==='work'?'工作':'生活'):'')}
+      ${f('cat','分类',t.cat)}
+      <div class="field" style="flex-direction:column;align-items:stretch;gap:6px">
+        <span class="fname">备注 · 你的原始输入（不改写）</span>
+        <span style="font-size:13px;line-height:19px;color:var(--ink)">${esc(t.remark)||'（空）'}</span>
+      </div>
+      <div class="btnrow">
+        ${t.inbox
+          ? `<button class="btn" data-act="savedetail">保存</button>`
+          : `<button class="btn ghost" data-act="pin">${t.pinned?'取消置顶':'置顶'}</button>`}
+        <button class="btn ghost" data-act="del" style="color:#DC2626;border-color:#FECACA;background:#FEF2F2">删除 · 30 天内可恢复</button>
+      </div>
+    </div>`;
+}
+
+/* ============ ③ 我的 C1 ============ */
+function meHTML(){
+  const g=(title,rows)=>`<div class="grouptitle">${title}</div>${rows}`;
+  const row=(icon,title,act,tag)=>`<button class="row" data-act="${act}" ${tag?`data-v="${tag}"`:''}>
+      <span style="width:20px;height:20px;color:var(--ink3)">${icon}</span>
+      <span style="flex:1;font-size:15px;color:var(--ink)">${title}</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>`;
+  const ic=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${p}</svg>`;
+  const cog=ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.6 1.6 0 00-1.8-.3 1.6 1.6 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.6 1.6 0 008 19.4a1.6 1.6 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.6 1.6 0 00.3-1.8 1.6 1.6 0 00-1.5-1H2a2 2 0 110-4h.1A1.6 1.6 0 004.6 8a1.6 1.6 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.6 1.6 0 001.8.3H9a1.6 1.6 0 001-1.5V2a2 2 0 114 0v.1a1.6 1.6 0 001 1.5 1.6 1.6 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.6 1.6 0 00-.3 1.8V9a1.6 1.6 0 001.5 1H22a2 2 0 110 4h-.1a1.6 1.6 0 00-1.5 1z"/>');
+  /* 云同步卡片 = 云服务的唯一入口，点它就是配置页 */
+  const cloudCard=`<button class="row" data-act="cloud" style="padding:14px">
+      <span style="width:44px;height:44px;border-radius:22px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none">☁️</span>
+      <span style="flex:1">
+        <span style="display:block;font-size:15px;font-weight:500;color:var(--ink)">云同步 · ${S.cloudOn?'已连接':'未配置'}</span>
+        <span style="display:block;font-size:11px;color:var(--ink3);margin-top:4px">${S.cloudOn?'上次同步 今天 09:41 · 点这里改配置 / 断开':'当前只在本地记录 · 点这里配置云服务'}</span>
+      </span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>`;
+  return `${switchNeutralHTML()}
+  <div class="stack">
+    <div class="hint" style="padding:6px 2px 0">设置与域无关 · 上方「工作 / 生活」为灰色静态态，不可切换</div>
+    ${cloudCard}
+    ${g('配置', row(cog,'AI 服务配置 · 换服务商改三个框','ai'))}
+    ${g('数据与备份',
+      row(ic('<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>'),'导出备份 · JSON / Excel','export')+
+      row(ic('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'),'回收站 · 30 天内可恢复','trash'))}
+    ${g('偏好',
+      row(ic('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8.5 9a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/><path d="M21 15l-5-5L5 21"/>'),'自定义背景图 · 工作 / 生活各一张','bg')+
+      row(ic('<path d="M4 6h16M4 12h16M4 18h10"/>'),'分类管理 · 工作 4 / 生活 4','cats'))}
+    ${g('其他',
+      row(ic('<path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/>'),'检查更新 · 当前 V0.1（M1）','update'))}
+    <div class="hint">本地自动备份不需要入口 —— 每次打开、同步完成后自动写一份到本机，保留 30 天</div>
+  </div>`;
+}
+
+/* ============ C2 AI 服务配置 ============ */
+function aiHTML(){
+  const opt=(v,label)=>`<button class="opt ${S.provider===v?'on':''}" data-act="provider" data-v="${v}"><span class="radio"></span><span>${label}</span></button>`;
+  return `<div class="backrow"><button class="backbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="pagetitle">AI 服务配置</div>
+    <div class="stack">
+      <div class="grouptitle">服务商</div>
+      ${opt('builtin','WorkBuddy 内置（默认 · 免费额度）')}
+      ${opt('deepseek','DeepSeek')}
+      ${opt('kimi','月之暗面 Kimi')}
+      ${opt('openai','OpenAI')}
+      <div class="hint" style="background:#FEF3C7;color:#92400E;border-radius:10px;padding:10px">
+        <b>M1 暂不启用</b> —— 当前是本地规则解析，不联网、不要 Key。<br>等接真 AI 时，再来这里填三个框。
+      </div>
+      <div class="label">接口地址</div><input class="tin" value="" placeholder="https://api.deepseek.com/v1">
+      <div class="label">API Key</div><input class="tin" value="" placeholder="填在这里 · 加密存储，不进备份">
+      <div class="label">模型名称</div><input class="tin" value="" placeholder="deepseek-chat">
+      <div class="btnrow"><button class="btn ghost" data-act="test">测试连接</button><button class="btn" data-act="back">保存</button></div>
+      <div class="hint">换服务商只改这三个框 · Key 加密存储，不进备份</div>
+    </div>`;
+}
+
+/* ============ C3 分类管理 ============ */
+function catsHTML(){
+  /* 整行可点编辑，「改」字删掉 */
+  const sec=(d,label)=>`<div class="grouptitle">${label}</div>
+    <div class="section">${CATS[d].map((c,i)=>
+      `<button class="field cat-row" data-act="editcat" data-v="${c}" data-domain="${d}" data-idx="${i}">
+        ${catChip(c)}<span class="fval">${c}</span>
+        <span class="fact" title="长按可拖动排序">⋮⋮</span></button>`).join('')}
+    <button class="btn ghost" data-act="newcat" data-v="${d}">+ 新建分类</button></div>`;
+  return `<div class="backrow"><button class="backbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="pagetitle">分类管理</div>
+    <div class="stack">
+      ${sec('work','工作域')}${sec('life','生活域')}
+      <div class="hint">分类挂在域下，不可跨域 · 删除分类不删待办（<b>改为未分类</b>，不进收件箱）</div>
+    </div>`;
+}
+
+/* ============ C4 云服务配置 ============ */
+function cloudHTML(){
+  const inp=(k,label,ph,type)=>`<div class="label">${label}</div>
+    <input class="tin" type="${type||'text'}" value="${esc(S.cloud[k])}" placeholder="${ph}" data-cloud="${k}">`;
+  return `<div class="backrow"><button class="backbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
+    <div class="pagetitle">云服务配置</div>
+    <div class="stack">
+      <div class="grouptitle">连接信息 · 四项</div>
+      <div class="section">
+        ${inp('ep','服务地址（Endpoint）','https://xxx.cloudbase.cn')}
+        ${inp('env','环境 / 空间 ID','todo-prod-1a2b3c')}
+        ${inp('key','访问密钥（API Key）','填在这里 · 加密存储')}
+        ${inp('pwd','同步口令（决定哪些设备共用同一份数据）','••••••••','password')}
+        <div class="btnrow"><button class="btn ghost" data-act="test">测试连接</button><button class="btn" data-act="savecloud">保存</button></div>
+      </div>
+      <div class="grouptitle">换设备别手抄</div>
+      <div class="btnrow">
+        <button class="btn ghost" data-act="import">导入配置码</button>
+        <button class="btn ghost" data-act="export">导出配置码</button>
+      </div>
+      <div class="hint">四项填完点【测试连接】，通过才允许保存 · 换设备：一台【导出配置码】，另一台【导入配置码】或扫码即可 · 密钥加密存本机、不进备份文件 · <b style="color:#DC2626">没有账号就没有找回通道，配置码务必自己存好</b></div>
+    </div>`;
+}
+
+/* ============ 悬浮按钮 ============ */
+function fabHTML(){
+  const phone=document.getElementById('phone');
+  if(S.tab==='note'){
+    const b=document.createElement('button');
+    b.className='fab badge'; b.dataset.n=inboxTodos().length; b.dataset.act='inbox'; b.title='收件箱';
+    b.innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 12h5l2 3h4l2-3h5"/><path d="M5 5h14l2 7v7H3v-7z"/></svg>';
+    phone.appendChild(b);
+  }
+  /* 第②栏不再有悬浮 + 号 —— 点「记一笔」栏直接聚焦，作用相同 */
+}
+function toast(msg){
+  const p=document.getElementById('phone');
+  const d=document.createElement('div'); d.className='toast'; d.textContent=msg; p.appendChild(d);
+  setTimeout(()=>d.remove(),1800);
+}
+
+/* ---------- 输入 / 选择弹窗 ---------- */
+function modalInput(title,ph,val,cb){
+  const p=document.getElementById('phone');
+  p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+  const d=document.createElement('div'); d.className='modal-mask'; d.dataset.act='closemodal';
+  d.innerHTML=`<div class="modal" data-act="noop">
+    <div class="modal-t">${title}</div>
+    <input class="tin" id="_mi" value="${esc(val)}" placeholder="${ph}">
+    <div class="btnrow">
+      <button class="btn ghost" data-act="closemodal">取消</button>
+      <button class="btn" data-act="miok">确定</button>
+    </div></div>`;
+  p.appendChild(d);
+  setTimeout(()=>{const el=d.querySelector('#_mi'); if(el){el.focus();el.select();}},30);
+  S._cb=cb;
+}
+function modalOptions(title,opts,cb){
+  const p=document.getElementById('phone');
+  p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+  const d=document.createElement('div'); d.className='modal-mask'; d.dataset.act='closemodal';
+  d.innerHTML=`<div class="modal" data-act="noop">
+    <div class="modal-t">${title}</div>
+    <div style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto">
+      ${opts.map(o=>`<button class="opt" data-act="miopt" data-v="${esc(o[0])}">${o[2]||''}<span>${o[1]}</span></button>`).join('')}
+    </div>
+    <button class="btn ghost" data-act="closemodal">取消</button></div>`;
+  p.appendChild(d);
+  S._cb=cb;
+}
+/* ---------- 四象限选择器（M1 · v2.8）----------
+   1 次点击即选中；选中后写入的仍是 imp / urg 两个字段（存储层不变） */
+function openQuad(curImp,curUrg,cb){
+  const p=document.getElementById('phone');
+  p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+  const ck=quadKey(curImp,curUrg);
+  const d=document.createElement('div'); d.className='modal-mask'; d.dataset.act='closemodal';
+  d.innerHTML=`<div class="modal" data-act="noop">
+    <div class="modal-t">轻重缓急</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${QUADS.map(o=>`<button class="opt ${ck===o[0]?'on':''}" data-act="qpick" data-v="${o[0]}">
+        <span style="width:8px;height:26px;border-radius:4px;background:${o[2]};flex:none"></span>
+        <span>${o[1]}</span></button>`).join('')}
+    </div>
+    <div class="hint">列表里只用颜色、不显示文字；这里必须显示，否则不知道自己在选什么</div>
+    <button class="btn ghost" data-act="closemodal">取消</button></div>`;
+  p.appendChild(d);
+  S._cb=cb;
+}
+
+/* fmtD 已上移到文件顶部（M1） */
+
+/* ---------- 日期选择：直接弹出月历来点 ---------- */
+const HOURS=Array.from({length:24},(_,i)=>String(i).padStart(2,'0'));
+const MINS=Array.from({length:12},(_,i)=>String(i*5).padStart(2,'0'));  /* 5 分钟一档 */
+function dpTime(){   /* 从两个下拉里读出时间，别让用户手打 */
+  const h=document.getElementById('_dph'), m=document.getElementById('_dpmin');
+  if(!h) return (S._dp&&S._dp.time)||'';
+  if(!h.value) return '';
+  return h.value+':'+(m&&m.value?m.value:'00');
+}
+function openDatePicker(title,cur,time,cb){
+  S._cb=cb;
+  S._dp={title, sel:cur||TODAY, time:time||'', m:new Date((cur||TODAY)+'T00:00:00').getMonth()};
+  renderDatePicker();
+}
+function renderDatePicker(){
+  const p=document.getElementById('phone');
+  p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+  const dp=S._dp; if(!dp) return;
+  const y=2026, m=dp.m;
+  const [curH,curM]=(dp.time||'').split(':');
+  const first=(new Date(y,m,1).getDay()||7)-1;        // 周一为一周起点
+  const days=new Date(y,m+1,0).getDate();
+  let cells='';
+  for(let i=0;i<first;i++) cells+='<span class="dp-cell"></span>';
+  for(let d=1;d<=days;d++){
+    const key=fmtD(new Date(y,m,d));
+    cells+=`<button class="dp-cell ${dp.sel===key?'sel':''} ${key===TODAY?'today':''}"
+      data-act="dpday" data-v="${key}">${d}</button>`;
+  }
+  const el=document.createElement('div'); el.className='modal-mask'; el.dataset.act='closemodal';
+  el.innerHTML=`<div class="modal" data-act="noop" style="max-width:320px;max-height:680px;overflow:auto">
+    <div class="modal-t">${dp.title}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <button class="btn ghost" data-act="dpm" data-v="-1" style="flex:none;padding:4px 12px">‹</button>
+      <span style="font-size:14px;font-weight:600">${y} 年 ${m+1} 月</span>
+      <button class="btn ghost" data-act="dpm" data-v="1" style="flex:none;padding:4px 12px">›</button>
+    </div>
+    <div class="dp-head">${['一','二','三','四','五','六','日'].map(w=>`<span>${w}</span>`).join('')}</div>
+    <div class="dp-grid">${cells}</div>
+    <div class="label">时间（下拉选，不用手打）</div>
+    <div style="display:flex;gap:6px;align-items:center;justify-content:center">
+      <select class="tin" id="_dph" style="flex:none;width:78px;text-align:center;text-align-last:center;padding:10px 6px">
+        <option value="">—</option>
+        ${HOURS.map(h=>`<option value="${h}" ${curH===h?'selected':''}>${h}</option>`).join('')}
+      </select>
+      <span style="font-size:18px;font-weight:600;color:var(--ink3);flex:none">:</span>
+      <select class="tin" id="_dpmin" style="flex:none;width:78px;text-align:center;text-align-last:center;padding:10px 6px">
+        <option value="">—</option>
+        ${MINS.map(m=>`<option value="${m}" ${curM===m?'selected':''}>${m}</option>`).join('')}
+      </select>
+    </div>
+    <div class="btnrow">
+      <button class="btn ghost" data-act="dpclear">清除</button>
+      <button class="btn" data-act="dpok">确定</button>
+    </div></div>`;
+  p.appendChild(el);
+}
+
+/* A2 面板：点某一行就能改 */
+function openField(key){
+  if(!S.parse) S.parse={title:'',due:'',dueText:'',time:'',imp:null,urg:null,cat:null,domain:S.domain};
+  const p=S.parse;
+  if(key==='title'){ modalInput('标题','这条要做什么',p.title,v=>{S.parse.title=v.trim();render();}); return; }
+  if(key==='due'){
+    openDatePicker('什么时候完成',p.due,p.time,(dt,tm)=>{
+      S.parse.due=dt||''; S.parse.time=tm||'';
+      S.parse.dueText = dt ? dt.slice(5).replace('-','月')+'日'+(tm?' '+tm:'') : '（没设时间）';
+      render();
+    }); return;
+  }
+  if(key==='quad'){ openQuad(p.imp,p.urg,(imp,urg)=>{
+      S.parse.imp=imp; S.parse.urg=urg; render(); }); return; }
+  /* M1（D-25）：这里只改「这一条」的归属，不切整个 App 的域；分类不可跨域，换域即清空分类 */
+  if(key==='domain'){ modalOptions('归到哪个域',[['work','工作'],['life','生活']],
+      v=>{S.parse.domain=v; S.parse.cat=null; render();}); return; }
+  if(key==='cat'){
+    modalOptions('分到哪一类', catOpts(p.domain||S.domain).concat([['','不分类']]),
+      v=>{S.parse.cat=v||null;render();}); return;
+  }
+}
+
+/* 详情页：点某一行就能改 */
+function openDetailField(key){
+  const t=todos.find(x=>x.id===S.detailId); if(!t) return;
+  if(key==='title'){ modalInput('标题','这条要做什么',t.title||'',v=>{t.title=v.trim();render();}); return; }
+  if(key==='due'){
+    openDatePicker('什么时候完成',t.due,t.time,(dt,tm)=>{
+      t.due=dt||null; t.time=tm||''; render();
+    }); return;
+  }
+  if(key==='quad'){ openQuad(t.imp,t.urg,(imp,urg)=>{
+      t.imp=imp; t.urg=urg; t.manual.imp=true; t.manual.urg=true; render(); }); return; }
+  if(key==='domain'){ modalOptions('归到哪个域',[['work','工作'],['life','生活']],v=>{t.domain=v;render();}); return; }
+  if(key==='cat'){
+    const dm=t.domain||S.inboxFrom||S.domain;
+    modalOptions('分到哪一类', catOpts(dm).concat([['','不分类']]),
+      v=>{t.cat=v||null;render();}); return;
+  }
+}
+
+/* ============ 解析服务（M1：规则版）============
+   接口契约：doParse(原话) → {title, due, time, dueText, imp, urg, cat, domain}
+   M1 用本地规则实现（不联网、不要 Key）；日后换真大模型，只换这一个函数，
+   界面与所有调用方一行都不用改。 */
+function doParse(text){
+  const t=text||'';
+  /* 重要 / 紧急：提到才算「是」，没提到 = 「否」（PRD 硬规则：绝不擅自判定） */
+  const imp=/重要|关键|老板|考核|必须|要紧/.test(t);
+  const urg=/急|尽快|马上|今天必须|催|赶紧|临时|截止/.test(t);
+  let due='',dueText='';
+  const addN=n=>{const x=new Date();x.setDate(x.getDate()+n);return fmtD(x);};  /* 本地日期，不再走 toISOString（会转成 UTC 算错一天） */
+  if(/今天/.test(t)){due=TODAY;dueText='今天';}
+  else if(/明天|明早|明日/.test(t)){due=addN(1);dueText='明天';}
+  else if(/后天/.test(t)){due=addN(2);dueText='后天';}
+  else if(/下周/.test(t)){due=addN(7);dueText='下周';}
+  else if(/下个月|下月/.test(t)){const x=new Date();x.setMonth(x.getMonth()+1);due=fmtD(x);dueText='下个月';}
+  const m=t.match(/(\d{1,2})\s*[点時时](半|一刻|\d{1,2})?/);
+  let hh=m?+m[1]:null;
+  /* 下午 / 晚上 / 傍晚 要转成 24 小时制，否则「下午3点」会变成凌晨 3 点 */
+  if(hh!=null && hh<12 && /下午|晚上|傍晚|夜里|晚间|今晚|明晚/.test(t)) hh = hh+12;
+  if(hh!=null && hh<12 && /中午/.test(t)) hh = 12;
+  let mm='00';
+  if(m&&m[2]) mm = m[2]==='半' ? '30' : (m[2]==='一刻' ? '15' : String(m[2]).padStart(2,'0'));
+  const time=m?(String(hh).padStart(2,'0')+':'+mm):'';
+  if(m) dueText+=' '+hh+':'+mm;
+  let cat=null;
+  const all=CATS[S.domain]||[];
+  for(const c of all) if(t.includes(c)) cat=c;
+  if(!cat && /报表|报告|年报|周报/.test(t)) cat=all.find(c=>/报表|材料|项目/.test(c))||null;
+  if(!cat && /电费|房租|缴费|账单|话费/.test(t)) cat=all.find(c=>/缴费|账单/.test(c))||null;
+  if(!cat && /买|采购|超市|菜|牛奶/.test(t)) cat=all.find(c=>/采购/.test(c))||null;
+  if(!cat && /开会|会议|评审|周会/.test(t)) cat=all.find(c=>/会议|沟通/.test(c))||null;
+  const title=t.replace(/[，。！,.!]/g,' ')
+    .replace(/(明天|今天|后天|下周|下个月|之前|前|尽快|马上|记得|有空的时候)/g,'')
+    .replace(/\s+/g,' ').trim().slice(0,20);
+  return {title:title||'',due,time,dueText:dueText||'（没听出时间）',imp,urg,cat,domain:S.domain};
+}
+
+/* ============ 事件 ============ */
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]');
+  if(!el){ /* 点输入框 / 面板之外的任意处 → 退出聚焦，回到 A1 */
+    if(S.focused && !S.sub && S.tab==='note'){ S.focused=false; render(); }
+    return;
+  }
+  const act=el.dataset.act, v=el.dataset.v;
+
+  if(act==='noop'){return;}
+
+  if(act==='field'){ openField(v); return; }
+  if(act==='miok'||act==='miopt'){
+    const val = act==='miok' ? (document.getElementById('_mi')||{}).value||'' : v;
+    document.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+    const cb=S._cb; S._cb=null; if(cb) cb(val); else render();
+    return;
+  }
+  /* 四象限选择器：一次点击 → 拆成 imp / urg 两个字段写回（存储层不变） */
+  if(act==='qpick'){
+    document.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+    const cb=S._cb; S._cb=null;
+    const imp=v?(v[0]==='1'):null, urg=v?(v[1]==='1'):null;
+    if(cb) cb(imp,urg); else render();
+    return;
+  }
+  /* 日历翻月（M1：真实年月，不再锁死 2026-10） */
+  if(act==='calm'){
+    let m=S.calM+(+v), y=S.calY;
+    if(m<0){m=11;y--;} if(m>11){m=0;y++;}
+    S.calY=y; S.calM=m; render(); return;
+  }
+  if(act==='focus'){ if(!S.focused){S.focused=true; render();} return; }
+  if(act==='blur'){ S.focused=false; render(); return; }
+
+  if(act==='toggle'){ e.stopPropagation();
+    const t=todos.find(x=>x.id==v); if(t){
+      t.done=!t.done;
+      t.doneAt = t.done ? nowStamp() : null;   /* M1：真实系统时间，不再取硬编码日期 */
+      render(true);
+    }
+    return;
+  }
+  if(act==='open'){ S.sub='detail'; S.detailId=+v; render(); return; }
+  /* 点「记一笔」栏 = 立刻聚焦，等价于原来的悬浮 + 号 */
+  if(act==='tab'){ S.tab=v; S.sub=null; if(v==='note') S.focused=true; render(); return; }
+  if(act==='domain'){ S.domain=v; S.parse=null; render(); return; }
+  if(act==='inbox'){ S.inboxFrom=S.domain; S.sub='inbox'; render(); return; }
+  if(act==='day'){ S.day=v; S.sub='day'; render(); return; }
+  if(act==='back'){ S.sub=null; render(); return; }
+  if(act==='cloud'||act==='ai'||act==='cats'){ S.sub=act; render(); return; }
+
+  if(act==='parse'){
+    const txt=document.getElementById('qi').value.trim();
+    S.input=txt;
+    if(!txt){toast('先说点什么，或留空直接保存 → 进收件箱');return;}
+    S.parse=doParse(txt); toast('✦ 已解析，检查一下对不对'); render();
+    return;
+  }
+  if(act==='cancel'){ S.parse=null; S.focused=false; render(); return; }
+  if(act==='save'){
+    const txt=document.getElementById('qi').value.trim(); S.input=txt;
+    if(!txt){toast('没有内容可保存');return;}
+    const p=S.parse||doParse(txt);
+    /* M1（D-02 拍板）：判定只看 4 项 —— 标题 / 完成时间 / 轻重缓急 / 归属。
+       **分类是选填项，不参与判定**：不填就是「未分类」，不算空缺 */
+    const filled4=!!(p.title && p.due && p.imp!=null && p.urg!=null && p.domain);
+    if(!S.parse || !filled4){
+      todos.push(T({title:'',remark:txt,domain:null,inbox:true,imp:null,urg:null}));
+      toast('四项没填全 → 已存进收件箱（待整理）');
+    }else{
+      todos.push(T({title:p.title||txt.slice(0,12),due:p.due,time:p.time,imp:p.imp,urg:p.urg,
+        cat:p.cat,domain:p.domain||S.domain,remark:txt,parsed:true}));
+      toast('已保存 · '+quadText(p.imp,p.urg));
+    }
+    S.parse=null; S.input=''; render(true); return;
+  }
+  if(act==='dfield'){ openDetailField(v); return; }
+  if(act==='parseone'){
+    const t=todos.find(x=>x.id===S.detailId); if(!t) return;
+    const p=doParse(t.remark);
+    t.title=p.title||t.remark.slice(0,12); t.due=p.due||null; t.time=p.time||'';
+    /* M1（D-03）：人工改过的重要 / 紧急，重新解析不得覆盖 */
+    if(!t.manual.imp) t.imp=p.imp;
+    if(!t.manual.urg) t.urg=p.urg;
+    if(!t.cat) t.cat=p.cat;
+    if(!t.domain) t.domain=p.domain||S.domain;
+    toast('✦ 已拆出这一条，检查一下再保存'); render(true); return;
+  }
+  if(act==='savedetail'){
+    const t=todos.find(x=>x.id===S.detailId); if(!t) return;
+    /* M1（D-02）：同样是 4 项判定 —— 标题 / 完成时间 / 轻重缓急 / 归属，分类选填 */
+    if(!(t.title && t.due && t.imp!=null && t.urg!=null && t.domain)){
+      toast('标题 / 完成时间 / 轻重缓急 / 归属 四项都要填（分类选填）'); return; }
+    t.inbox=false; t.parsed=true; if(!t.domain) t.domain=S.inboxFrom;
+    toast('已保存 · 归入「'+(t.domain==='work'?'工作':'生活')+'」'+(t.cat?' / '+t.cat:''));
+    S.sub=null; render(); return;
+  }
+  if(act==='reparseall'){
+    let n=0;
+    inboxTodos().filter(t=>!t.done).forEach(t=>{
+      const p=doParse(t.remark);
+      if(p.title||p.due||p.cat){
+        t.title=p.title||t.remark.slice(0,12); t.due=p.due||null;
+        /* N-03：批量重解析同样逐字段判断，人工改过的跳过 */
+        if(!t.manual.imp) t.imp=p.imp;
+        if(!t.manual.urg) t.urg=p.urg;
+        if(!t.cat) t.cat=p.cat;
+        t.domain=S.inboxFrom||p.domain; t.inbox=false; t.parsed=true; n++;
+      }
+    });
+    toast(n?`✦ 已解析并归类 ${n} 条`:'这些原话里没拆出可用信息，仍留在收件箱');
+    render(true); return;
+  }
+  if(act==='pin'){const t=todos.find(x=>x.id===S.detailId);t.pinned=!t.pinned;render(true);return;}
+  if(act==='del'){const t=todos.find(x=>x.id===S.detailId);t.deleted=true;toast('已删除 · 30 天内可恢复');S.sub=null;render();return;}
+  if(act==='regen'){ toast('M1 不做复盘 · 配置 AI 后这里才会生成'); return; }
+  if(act==='disconnect'){S.cloudOn=false;S.cloud={ep:'',env:'',key:'',pwd:''};
+    toast('已断开云服务 · 回到纯本地，本机数据不丢');render();return;}
+  if(act==='dpday'||act==='dpm'){
+    S._dp.time=dpTime();                     // 翻月/换日之前先把时间读回来
+    if(act==='dpday') S._dp.sel=v;
+    else S._dp.m=Math.max(0,Math.min(11,S._dp.m + (+v)));
+    renderDatePicker(); return;
+  }
+  if(act==='dpclear'){
+    document.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+    const cb=S._cb; S._cb=null; S._dp=null; if(cb) cb('',''); return;
+  }
+  if(act==='dpok'){
+    const time=dpTime();
+    const dt=S._dp.sel;
+    document.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+    const cb=S._cb; S._cb=null; S._dp=null; if(cb) cb(dt,time); return;
+  }
+  if(act==='newcat'){ openNewCat(v); return; }
+  if(act==='nccolor'||act==='ncsym'){
+    const n=document.getElementById('_nc'); if(n) S._newcat.name=n.value;
+    if(act==='nccolor') S._newcat.color=v; else S._newcat.symbol=v;
+    renderNewCat(); return;
+  }
+  if(act==='editcat'){ if(S._suppressClick) return; openEditCat(v); return; }
+  if(act==='ncsave'){
+    const nc=S._newcat; const n=document.getElementById('_nc'); if(n) nc.name=(n.value||'').trim();
+    if(!nc.name){ toast('给它起个名字'); return; }
+    if(nc.old){
+      const d=CATS.work.includes(nc.old)?'work':'life';
+      if(nc.name!==nc.old){
+        if(CATS[d].includes(nc.name)){ toast('已经有同名分类了'); return; }
+        CATS[d][CATS[d].indexOf(nc.old)]=nc.name;
+        todos.forEach(t=>{ if(t.cat===nc.old) t.cat=nc.name; });
+        delete CAT_STYLE[nc.old];
+      }
+      CAT_STYLE[nc.name]={color:nc.color,symbol:nc.symbol};
+      toast('已更新分类「'+nc.name+'」');
+    }else{ /* 新建 */
+      if(CATS[nc.domain].includes(nc.name)){ toast('已经有同名分类了'); return; }
+      CATS[nc.domain].push(nc.name);
+      CAT_STYLE[nc.name]={color:nc.color,symbol:nc.symbol};
+      toast('已创建分类「'+nc.name+'」');
+    }
+    document.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+    S._newcat=null; render(true); return;
+  }
+  if(act==='ncdel'){
+    const nc=S._newcat; if(!nc||!nc.old) return;
+    const d=CATS.work.includes(nc.old)?'work':'life';
+    CATS[d]=CATS[d].filter(c=>c!==nc.old);
+    delete CAT_STYLE[nc.old];
+    let n=0; todos.forEach(t=>{ if(t.cat===nc.old){ t.cat=null; n++; } });
+    document.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+    S._newcat=null;
+    toast(n?`已删除 · ${n} 条待办改为未分类（待办本身没删）`:'已删除分类');
+    render(true); return;
+  }
+  if(act==='recur'){ openRecur(); return; }
+  if(act==='rcmode'){ syncRecur(); S._recur.mode=v; openRecur(); return; }
+  if(act==='rcwd'){  syncRecur(); S._recur.wd=+v; openRecur(); return; }
+  if(act==='rcimp'){ syncRecur(); S._recur.imp=!S._recur.imp; openRecur(); return; }
+  if(act==='rcurg'){ syncRecur(); S._recur.urg=!S._recur.urg; openRecur(); return; }
+  if(act==='rccat'){ syncRecur(); S._recur.cat=(S._recur.cat===v?null:v); openRecur(); return; }
+  if(act==='rcsave'){ genRecur(); return; }
+  if(act==='trash'){S.sub='trash';render();return;}
+  if(act==='bg'){S.sub='bg';render();return;}
+  if(act==='restore'){const t=todos.find(x=>x.id==v);if(t)t.deleted=false;
+    toast('已恢复 · 回到原来的域和分类');render(true);return;}
+  if(act==='pickbg'){toast(v==='work'?'打开图片选择 · 工作域':'打开图片选择 · 生活域');return;}
+  if(act==='closemodal'){document.querySelectorAll('.modal-mask').forEach(m=>m.remove());return;}
+  if(act==='export'){const dn=fmtD(new Date());modal('导出备份',
+    `已生成两份文件：<br>· <b>待办清单-备份-${dn}.json</b>（完整，可一键还原）<br>· <b>待办清单-${dn}.csv</b>（Excel 直接打开，带 BOM 不乱码）<br><br><b>导出到哪儿</b><br>手机：<b>本机 / 下载 / 待办清单 /</b><br>电脑：浏览器的默认下载目录<br><br>文件里<b>不含 API Key</b>，可放心另存网盘或发给自己。`);return;}
+  if(act==='update'){modal('检查更新',
+    '当前已是最新版本 <b>V0.1（M1）</b>。<br><br>上次检查：今天 '+nowHM()+'<br>更新方式：App 内提示 → 点一下下载 → 引导安装<br><br>有新版本时，这里会变成版本号 + 「下载并安装」按钮。');return;}
+  if(act==='provider'){S.provider=v;render();return;}
+  if(act==='test'){toast('连接成功 ✓（真实调用一次才会允许保存）');return;}
+  if(act==='savecloud'){
+    const ok=S.cloud.ep&&S.cloud.env&&S.cloud.key&&S.cloud.pwd;
+    if(!ok){toast('四项都要填完，且先通过测试连接');return;}
+    S.cloudOn=true; toast('云服务已开启 · 现在是跨设备同步模式'); S.sub=null; render(); return;
+  }
+  if(act==='import'){
+    S.cloud={ep:'https://xxx.cloudbase.cn',env:'todo-prod-1a2b3c',key:'',pwd:''};
+    S.cloudOn=true; toast('配置码已导入并测试通过'); render(); return;
+  }
+  if(act==='export'){toast('配置码已复制（也可扫码）· 请自己存好，丢了找不回');return;}
+  if(act==='quick'){S.tab='note';S.sub=null;render();setTimeout(()=>document.getElementById('qi')?.focus(),50);return;}
+});
+
+document.addEventListener('input',e=>{
+  if(e.target.id==='qi') S.input=e.target.value;
+  if(e.target.dataset.cloud){ S.cloud[e.target.dataset.cloud]=e.target.value; }
+});
+/* 点输入框（或用 Tab 键切进来）→ 进入 A2 输入态 */
+document.addEventListener('focusin',e=>{
+  if(e.target.id==='qi' && !S.focused){ S.focused=true; render(); }
+});
+/* Esc 收起键盘 → 回到 A1 */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && S.focused){ S.focused=false; render(); }
+});
+
+/* ============ 分类长按拖动排序 ============ */
+let _dt=null,_drag=null;
+document.addEventListener('pointerdown',e=>{
+  const row=e.target.closest('.cat-row'); if(!row) return;
+  _dt=setTimeout(()=>{                       /* 长按 400ms 进入拖动 */
+    _drag={row,domain:row.dataset.domain,from:+row.dataset.idx,to:+row.dataset.idx};
+    row.classList.add('dragging');
+  },400);
+});
+document.addEventListener('pointermove',e=>{
+  if(!_drag) return;
+  e.preventDefault();
+  const rows=[...document.querySelectorAll('.cat-row')].filter(r=>r.dataset.domain===_drag.domain);
+  let to=_drag.from;
+  rows.forEach((r,i)=>{ const b=r.getBoundingClientRect(); if(e.clientY>b.top+b.height/2) to=i; });
+  _drag.to=to;
+});
+document.addEventListener('pointerup',()=>{
+  if(_dt){clearTimeout(_dt);_dt=null;}
+  if(!_drag) return;
+  const {domain,from,to,row}=_drag;
+  row.classList.remove('dragging'); _drag=null;
+  S._suppressClick=true; setTimeout(()=>S._suppressClick=false,60);  /* 别把拖动当成点击 */
+  if(to!=null && to!==from){
+    const arr=CATS[domain]; const [x]=arr.splice(from,1); arr.splice(to,0,x);
+    toast('顺序已更新 · 选择分类时也是这个顺序');
+    render(true);
+  }
+});
+
+/* ---- 启动（M1 · FR-025）：先读本机数据，读不到才用种子 ---- */
+(function init(){
+  const d=DB.load();
+  if(d && Array.isArray(d.todos)){
+    todos=d.todos;
+    reviews=d.reviews||{};
+    if(d.CATS){ CATS.work=d.CATS.work||CATS.work; CATS.life=d.CATS.life||CATS.life; }
+    if(d.CAT_STYLE) Object.assign(CAT_STYLE,d.CAT_STYLE);
+    uid=todos.reduce((m,t)=>Math.max(m,t.id||0),100);
+    todos.forEach(t=>{ if(!t.manual) t.manual={}; if(t.createdAt==null) t.createdAt=nowStamp(); });
+  }else{
+    todos=seed(); DB.save();
+  }
+  const n=new Date();
+  S.calY=n.getFullYear(); S.calM=n.getMonth();
+  if(!S.day) S.day=TODAY;
+})();
+render();
+setInterval(()=>{const d=new Date();document.getElementById('clock').textContent=d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');},1000);
+</script>
+</body>
+</html>

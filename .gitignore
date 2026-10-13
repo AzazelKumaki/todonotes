@@ -1,0 +1,14 @@
+.toolchain/
+.workbuddy/
+*.genie
+git地址.txt
+_归档/2026-10-10-首版作废 不用读取/
+*.keystore
+*.jks
+*.apk
+*.aab
+build/
+.gradle/
+.idea/
+*.iml
+local.properties
