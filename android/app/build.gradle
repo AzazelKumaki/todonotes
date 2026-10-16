@@ -1,0 +1,72 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.daiban.todo'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.daiban.todo"
+        // minSdk 29（安卓 10）起步：用 MediaStore 写「下载」目录不用申请任何系统权限
+        minSdk 29
+        targetSdk 36
+        versionCode 2
+        versionName "0.2"
+    }
+
+    // 自签名（发布/自用都用它），不用开发者账号、不用备案、0 费用
+    signingConfigs {
+        release {
+            storeFile file('../daiban.keystore')
+            storePassword 'daiban2026'
+            keyAlias 'daiban'
+            keyPassword 'daiban2026'
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            // 资源裁剪：只留中文和英文，图标用矢量图，APK 体积小
+            crunchPngs true
+        }
+        debug {
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // MainActivity 里要用 BuildConfig.VERSION_NAME 显示版本号
+    buildFeatures { buildConfig = true }
+
+    packagingOptions {
+        excludes += ['META-INF/*']
+    }
+
+    defaultConfig {
+        // 只打中文 + 英文资源，省体积
+        resourceConfigurations += ["zh", "en"]
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// 把网页原型拷进 assets（注意相对是 app 模块，所以要退两级）：
+// 改完 prototype/index.html 重新打包，自动带进去
+tasks.register('copyWeb', Copy) {
+    from '../../prototype/index.html'
+    into 'src/main/assets'
+}
+preBuild.dependsOn copyWeb
+
+dependencies {
+    // 一个依赖都不用：WebView 是安卓系统自带的东西
+}

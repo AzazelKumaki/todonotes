@@ -1,0 +1,10 @@
+pluginManagement {
+    repositories { google(); mavenCentral(); gradlePluginPortal() }
+}
+dependencyResolutionManagement {
+    // PREFER_SETTINGS：兼容本机 init.d 里配的镜像仓库（国内下载更快），不被它们卡住
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories { google(); mavenCentral() }
+}
+rootProject.name = "daiban"
+include ':app'
