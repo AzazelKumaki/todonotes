@@ -1,7 +1,7 @@
 .toolchain/
 .workbuddy/
 *.genie
-git地址.txt
+git地址-含密钥勿打开.txt
 _归档/2026-10-10-首版作废 不用读取/
 *.keystore
 *.jks
