@@ -335,7 +335,7 @@ AI 服务商现在有五档：`WorkBuddy 内置` / `DeepSeek` / `Kimi` / `OpenAI
 1. 不要动 `DB` / `doParse` 的接口，要加字段直接往 `T()` 里加。
 2. `render()` 开头有 `DB.save()` —— 改动会自动落盘。
 3. 所有交互走事件委托（`data-act`），点击处理是具名函数 `handleAct(e)`。
-4. 改完代码必跑测试：`cd tests && node smoke.js` / `ai-smoke.js` / `inbox-save.js` / `ai-models.js` / `ui-actions.js` / `ui-fixes.js` / `manual-guard.js`。
+4. 改完代码必跑测试：`cd tests && node smoke.js` / `ai-smoke.js` / `inbox-save.js` / `ai-models.js` / `ui-actions.js` / `ui-fixes.js` / `manual-guard.js` / `cloud-sync.js` / `cos-sync.js` / `apk-mode-check.js`。
    新增函数要手动加进 `tests/harness.js` 的 `globalThis.__app` 导出列表。
 5. 改 CSS 后跑花括号平衡校验（曾因残留孤儿 `}` 导致弹窗错位、页面错乱）。
 6. 视觉问题用无头 Chrome 验证：`chrome.exe --headless=new --screenshot=out.png --virtual-time-budget=2500 file:///探针.html`；
@@ -355,6 +355,32 @@ AI 服务商现在有五档：`WorkBuddy 内置` / `DeepSeek` / `Kimi` / `OpenAI
 17. **密钥里不能有中文/全角符号** —— HTTP 头放不下它，会被浏览器直接掐掉；不前置校验的话，错误会被误报成"对方不给跨域"，把人带沟里（已在 `CLOUD.hdr` 拦成 `KEYCHAR`）。
 18. **连内网地址（`127.0.0.1` / `192.168.x.x`）时，服务端必须额外回 `Access-Control-Allow-Private-Network: true`** —— 浏览器的"本地网络保护"会先发预检问一句，不点头请求就发不出去。换成公网 HTTPS 地址（Supabase）没这一步。`tools/sync-server.js` 已经处理。
 19. 调试浏览器链路用 **CDP**（`--remote-debugging-port` + WebSocket 读 DOM）。`--dump-dom` 会在异步跑完前就把页面吐出来，配上 `--virtual-time-budget` 还会把 `setTimeout` 快进、导致请求被超时掐断，**两者都不可靠**。
+
+**打包环境与出包流程（2026-10-18 踩坑后补，照着做就不会再卡）**
+
+20. **JDK 情况（最大的坑）**：本机默认 `java` 是 **1.8，而且没有 javac**；安卓 Gradle 插件（AGP 8.11）**强制 JDK 17+**。直接跑 gradle 会报 `Dependency requires at least JVM runtime version 11. This build uses a Java 8 JVM`。解决办法：用仓库里的 `.toolchain/`——`jdk`（Temurin 17）、`jdk21`、`android-sdk`（build-tools 34/35、platforms）三件套都在，**不要再从网上下载 JDK**（下载也慢）。
+21. **一键打包（日常就用这个）**：双击 `android/build-apk.bat`。它已经配好 `JAVA_HOME=.toolchain\jdk21` 和 `ANDROID_HOME=.toolchain\android-sdk`，自动把网页拷进 assets、打包、**复制到项目根目录**（`待办清单-V0.3.apk`）。全程不用手动设环境变量。
+22. **手动打包命令**（在 bash / Git Bash 里，比如跑测试脚本顺带出包）：
+    ```bash
+    cd android
+    JAVA_HOME=<仓库>/.toolchain/jdk \
+    ANDROID_HOME=<仓库>/.toolchain/android-sdk \
+    ANDROID_SDK_ROOT=<仓库>/.toolchain/android-sdk \
+    ~/.gradle/wrapper/dists/gradle-8.14.3-all/*/gradle-8.14.3/bin/gradle assembleRelease --offline
+    ```
+    注意三点：**gradle wrapper 自己下载会超时**，直接用已缓存的那个路径；`~/.gradle/init.d/mirrors.gradle` 配了国内镜像，别去动它；`--offline` 能跑通（依赖都在缓存里），省得连仓库。
+23. **打包前 checklist**：① `cd tests && node smoke.js`（至少冒烟一遍，改过 render/视图的跑全套，见第 4 条）；② 版本号在 `android/app/build.gradle`（`versionCode` / `versionName`，App 里「我的」页显示的就是它）；③ 不用手动拷网页——`copyWeb` 任务挂在 `preBuild` 上会自动把 `prototype/index.html` 打进 assets（路径相对 app 模块，写 `../../prototype/index.html`，写错会静默不打进，APK 只有 15KB 就是信号）。
+24. **出包后必校验**（防"改了代码但 APK 还是旧的"）：
+    ```bash
+    unzip -p 待办清单-V0.3.apk assets/index.html | grep -c app-mode   # 换成当轮的关键字符串
+    <SDK>/build-tools/35.0.0/aapt2 dump xmltree --file AndroidManifest.xml 待办清单-V0.3.apk | grep versionName
+    ```
+25. **构建产物可以随时删**：`android/build`、`android/app/build`、`android/.gradle`、`android/app/src/main/assets` 全是可再生出来的，下次构建自动重建；交付用的 APK 在**项目根目录**，别删。`daiban.keystore`（口令 `daiban2026`）**丢了就出不了更新包**，要跟备份一起存。
+26. **无头 Chrome 验小屏布局的坑**：`--window-size` 有 **500px 宽度下限**（要 360px 视口它也给 500px），`--force-device-scale-factor` 也不改 CSS 视口。小屏只能走 CDP 的 `Emulation.setDeviceMetricsOverride`——现成实现见 `tests/apk-mode-check.js`（真机视口 + UA 标记 + 断言 + 截图，改布局后跑它）。
+    另外 Node 连 CDP 有三个小坑：`ws.onopen` **只能赋值一次**（再赋一次会把就绪标志冲掉，之后所有发送卡死）；`fetch /json/list` 要加 `AbortSignal.timeout`；CDP 响应取值路径是 `r.result.result.value`（少写一层 `.result` 不会报错，只会静默变空对象）。
+27. **WindowInsets 是物理像素，网页 CSS px 是 dp** —— 把原生 inset 注入网页当 CSS 变量时**必须除屏幕密度**（`getResources().getDisplayMetrics().density`），否则留白按密度放大 2~3 倍（2.625x 屏上 48dp 状态栏被留成 126px 空白，2026-10-18 真机实测）。CSS 侧再加 `min(…, 96px)` 上限保护。无头浏览器没有系统栏（inset=0），这个坑只能在真机发现。
+28. **WebView 首屏弹键盘**：网页的 `focus()` 发生在窗口拿到焦点之前会被系统忽略（表现：首次打开不弹键盘、切页面才弹）。修法：`onWindowFocusChanged` 里 `InputMethodManager.showSoftInput(web, SHOW_IMPLICIT)` 补弹，带重试；只在网页处于聚焦态且焦点在输入框时才弹（用 `evaluateJavascript` 问网页，别无条件弹）。
+29. **状态栏图标明暗不会自动适配**：安卓的状态栏/手势条图标颜色是 App 自己用 `setSystemBarsAppearance(APPEARANCE_LIGHT_STATUS_BARS)` 声明的，不声明就是白色图标——浅色底 App 必须显式设深色，否则白底白字。实现见 `MainActivity.setSystemBarIconsDark()`（onCreate + onWindowFocusChanged 各一次）。**注意**：一旦「自定义背景图」允许深色图，这里要改成网页采样图片亮度后经 AppBridge 动态通知，不能恒设。
 
 ---
 
@@ -386,6 +412,53 @@ AI 服务商现在有五档：`WorkBuddy 内置` / `DeepSeek` / `Kimi` / `OpenAI
 
 ## 12. 变更记录
 
+- **2026-10-18（深夜）· 状态栏图标明暗适配（白底白字看不清）**
+  - **现象（用户反馈）**：别的 App 状态栏图标会跟着底色变黑变白，我们这个不会——底色是白的，时间和电量也是白的，看不清。
+  - **原理**：安卓状态栏/手势条图标的明暗是 App 自己通过 `setSystemBarsAppearance(APPEARANCE_LIGHT_STATUS_BARS)` 声明的，不声明系统就给默认的白色图标（按深色底设计的）。别的 App「会自适应」就是因为它们在底色变化时调了这个开关。
+  - **修法**：`MainActivity` 新增 `setSystemBarIconsDark(true)`，onCreate 和 onWindowFocusChanged 各设一次（防个别 ROM 重置）。API 30+ 走 `WindowInsetsController`，更早走 `View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR`（minSdk 29 全覆盖）；状态栏 + 底部手势条一起设。
+  - **为什么敢恒设深色**：三种主题底色都是浅色（#F8FAFC / #FFFBF5 / #FFFFFF），且**自定义背景图目前只是 stub**（"更换图片"按钮只弹提示，未实现）。⚠️ 将来做自定义背景图时若允许深色图，必须改成动态切换：网页侧采样图片亮度 → AppBridge 通知原生（已写在代码注释和 §9 第 29 条）。
+  - APK 已重打包（85.1KB，dex 含 `setSystemBarsAppearance` / `setSystemUiVisibility` 两条路径）；测试无回归。
+- **2026-10-18（夜）· 真机两连修：状态栏留白放大 2~3 倍（密度坑）+ 首屏键盘不自动弹**
+  - **Bug 1（用户截图反馈）**：加了系统栏避让后，顶部出现约 155px 的空白（正常状态栏只有 24~48px）。
+    **根因**：安卓 `WindowInsets` 返回的是**物理像素**，而网页 CSS px 是密度无关像素（dp）——直接把物理值当 CSS 值注入，留白按屏幕密度放大了 2~3 倍（用户机 2.625x）。**修法**：`MainActivity` 里 `Math.round(px / density)` 换算成 dp 再注入；CSS 侧再加 `min(…, 96px/48px)` 上限保护（ROM 报离谱值时宁可贴一点也不留空白）。无头浏览器没有系统栏（inset=0），这个坑测试里发现不了，靠真机截图 + 逐行像素剖面分析定位。
+  - **Bug 2（用户反馈）**：首次打开 App 进入聚焦态但**软键盘不弹**，切个页面反而弹了。
+    **根因**：网页的 `focus()` 发生在**窗口拿到焦点之前**，那次聚焦被系统忽略（切页面时窗口已有焦点，所以 focus() 能弹出键盘）。
+    **修法**：`MainActivity` 加 `onWindowFocusChanged` → 窗口一有焦点就 `InputMethodManager.showSoftInput` 补弹；带 8 次 × 150ms 重试（首屏加载慢时 focus 比窗口焦点晚到）；只在网页自己处于「聚焦态且焦点在输入框」时才弹（二级页/我的页/已收起时不弹），`onPageFinished` 也触发一次。
+  - `tests/apk-mode-check.js` 新增**上限断言**：注入 200px 鬼畜值必须被压成 96px/48px。
+  - APK 已重打包（84.6KB）；11 个测试脚本全过。
+- **2026-10-18（再晚）· 凌晨窗口放宽到 0~4 点 + 提示词文档升 V0.3 + 域切换器改顶部固定栏**
+  - **凌晨特例窗口 0~2 点 → 0~4 点**（主人拍板）：00:00~03:59 之间「明天/明早/明晚/明日」= 当天、「后天」= +1 天；04:00 起按字面。提示词（parseSys 规则 2）、规则版 `doParse`、`tests/parse-early-morning.js`（新增 02:30/03:59/04:00 边界，原 02:00→隔天用例改为 02:30→当天）三处同步改。
+  - **提示词定稿文档改名**：`docs/V0.2-提示词-已定稿.md` → **`docs/V0.3-提示词-已定稿.md`**（内容同步 0~4 点规则；`PROMPTS.v` 与文件头注释升 V0.3）。注意 `docs/M2内容手册.md` 里指向的是**留档/V0.2-M2/** 的存档副本，不随本次改名动。
+  - **域切换器（工作/生活）改为顶部固定栏**（主人提的：以前写在每屏顶部，跟着页面滚走了）：`.phone` 里新增 `#domainbar`（flex 独立一栏，不随 `.view` 滚动），`render()` 往里灌 `switchHTML()` / `switchNeutralHTML()`，从「记一笔 / 日历 / 我的」三个屏幕的 HTML 里移除内嵌切换器；二级页（详情 / 收件箱 / 设置项）照旧不显示；「我的」页仍是**灰色静态态不可切换**（设置与域无关的产品规则未变）。
+- **2026-10-18（深夜）· 真机状态栏避让重写 + 凌晨「明天=当天」+ 多尺寸适配扩容**
+  - **真机 bug（用户截图反馈）**：APK 里网页内容画到手机真实状态栏底下，和时钟/电池重叠。根因：`web.setFitsSystemWindows(true)` **对 WebView 不生效**——Chromium 的 WebView 会自己吞掉 WindowInsets，不翻译成 View padding。
+  - **重写避让机制**（三层，任一到岗即可）：
+    1. `MainActivity` 加 `setOnApplyWindowInsetsListener`，读出 systemBars + 刘海（displayCutout）的真实高度，`evaluateJavascript` 注入成 CSS 变量 `--sysbar-top` / `--sysbar-bottom`；insets 可能比页面先到，`onPageFinished` 里补推一次；
+    2. 网页 app-mode：`.phone` 的 `padding-top/bottom = var(--sysbar-*, env(safe-area-inset-*, 0px))`；
+    3. meta 补 `viewport-fit=cover`（env() 兜底生效的前提；手机浏览器直接打开也管用）。
+    删掉 `setFitsSystemWindows(true)`——留着会在老机型上和机制 ① 双重留白。
+  - **多分辨率适配的口径**（回答"怎么保证各种手机适配"）：布局全流式（`100vw/100dvh` + flex + `min()/max()`，无写死宽度）；CSS 像素与屏幕密度无关（安卓 dp→CSS px 映射，2x/3x 屏布局一致只是更清晰）；竖屏锁定。`tests/apk-mode-check.js` 从 2 种扩到 **5 种视口**（320×568 / 360×800 / 384×854 / 412×915 / 480×960），断言无横向滚动、无元素溢出，并新增**状态栏预留断言**（注入 44/16px → `.phone` padding 与内容起点必须跟上）。
+  - **AI 解析凌晨特例**（用户提的）：00:00~01:59 之间说「明天/明早/明晚/明日」按**当天**算，「后天」按 +1 天；02:00 起按字面（**窗口当晚即放宽至 0~4 点，见下一条**）。**提示词（PROMPTS.parseSys 规则 2）与规则版 doParse 同步改**（兜底与 AI 口径一致，不会出现没网时算错一天）；`v` 版本说明已标注。定稿文档同步（当时文件名 `V0.2-提示词-已定稿.md`，后改名 `V0.3-提示词-已定稿.md`）。
+  - 新增 `tests/parse-early-morning.js`（13 项：三个时间场景 × 当天/隔天/时间点/边界 01:59/02:00 + 提示词含同规则）。
+  - 编译踩坑：`WindowInsets.DisplayCutout` 不存在，`DisplayCutout` 是 `android.view` 的独立类（`insets.getDisplayCutout()` 返回它）。
+  - 全量 11 个测试脚本通过；APK 已重打包（82KB，dex 含 `--sysbar-top` 注入、assets 含 CSS 预留）。
+- **2026-10-18（晚）· 日历最后一行对齐修复 + 打包文档入档**
+  - **Bug**：日历每月最后一行不足 7 格时（如 10 月 26~31 日只有 6 格），`.cell` 是 `flex:1`，行内格子少就被拉伸摊开，日期压错列、不跟表头「一~日」对齐（观感像"居中"）。
+  - **修法**：`calendarHTML()` 在收尾 `flush()` 前用空白格把最后一行补满 7 位（`while(buf.length && buf.length<7)`）。前面补首行空白的老逻辑不变，现在首尾两行都对齐。
+  - **§9 新增第 20~26 条「打包环境与出包流程」**：本机默认 java 1.8 无 javac、AGP 要 JDK17 的坑；三件套 `.toolchain/`（jdk/jdk21/android-sdk）别再下载；一键 `build-apk.bat` 与手动命令；打包前三件事与出包后两项校验；构建产物可随时删、keystore 不能丢；无头 Chrome 小屏验证必须走 CDP Override（含 Node 连 CDP 的三个小坑）。
+  - §9 第 4 条测试清单补 `apk-mode-check.js`。
+- **2026-10-18 · APK 真机化：原型网页 → 真机全屏形态（本轮主诉）**
+  - **背景**：用户在手机上用 APK 发现四个问题——① 原型"说明卡"（可点的地方）在窄屏被挤到手机壳下面，下滑就看见；② 顶部有原型自画的假状态栏（9:41 + 信号/WiFi/电池）；③ 屏幕上有"A1 · 记一笔"这类原型编号标签；④ 手机壳写死 390×844 + body flex 居中，在 412mm 宽手机上内容区只剩 364px，**整页比屏幕还大、可以拖动**。
+  - **方案：同一个 index.html 两种形态**（网页端原型照旧，APK 走 app-mode）：
+    - `MainActivity` 给 UA 追加 `DaibanApp/<版本>` 标记；页面文首脚本按 UA（或 `AppBridge.isApp()` 兜底）认领，给 body 加 `app-mode`。
+    - `app-mode` 样式（放在样式表**末尾**，同特异性时后者胜，否则盖不住 `.screentag` 等后面的原型规则）：手机壳撑满 `100vw/100dvh`、去圆角阴影，假状态栏 / 说明卡 / 原型标签 `display:none!important`，body 禁滚动禁回弹（`overflow:hidden;overscroll-behavior:none`）。
+    - `render()` 的主题切换从 `document.body.className = 'theme-…'`（整体覆盖，会把 app-mode 冲掉）改为 `classList.remove/add` 只换主题类。
+    - `<title>` 去掉"交互原型 v2.6"字样；viewport 补 `user-scalable=no`。
+  - **真机适配三处死宽**：底部 Tab 胶囊 `348px → min(348px,100%)`（tabbar 加 12px 左右 padding）；日历格 `46px 定宽 → flex:1`（7 列均分，小屏不撑破）；域切换器本来就 `width:100%`。
+  - **安卓侧**：`web.setFitsSystemWindows(true)` —— targetSdk 36 在安卓 15+ **强制 edge-to-edge**，不避开的话网页会画到真实状态栏底下；`setOverScrollMode(OVER_SCROLL_NEVER)` 去掉边缘拖拽回弹。`versionCode 2→3`、`versionName 0.2→0.3`。
+  - **窄窗口（<900px）自动走同一套撑满样式**：手机浏览器直接打开 index.html 也不会再出现"比屏幕大"。
+  - **新增 `tests/apk-mode-check.js`**：CDP + `Emulation.setDeviceMetricsOverride` 把视口 Override 成真实手机（360×800 / 412×915，带 DaibanApp UA），断言 app-mode 认领、三件原型专属件隐藏、无横向滚动、无元素溢出、日历格/胶囊宽度正常，并截图。**注意**：本机无头 Chrome 窗口宽度有 500px 下限，`--window-size` 无效，必须走 CDP Override。
+  - 全量 10 个测试脚本通过；**APK 已重新打包**（79KB），解包校验 assets/index.html 含全部修复。
 - **2026-10-16（实现）· S1~S3 落地并实测通过**
   - `prototype/index.html` 新增 `CLOUD` 适配层（PBKDF2 派生 `space_id`、REST 读/写、错误码翻译）+ `SYNC` 引擎（自动同步 1.2s 防抖、冲突不自动覆盖、断网留本机、同步后写快照、配置码导出导入）。**只用 `fetch` + WebCrypto，没引入任何 SDK**，仍是单文件。
   - 版本号 `APPVER` → `V0.3（M3 · 云同步）`；「云同步」配置页重写；「我的」页状态卡改为读真实状态；旧的手填四栏与假按钮全部删除。
@@ -394,6 +467,21 @@ AI 服务商现在有五档：`WorkBuddy 内置` / `DeepSeek` / `Kimi` / `OpenAI
   - 实测结论：`file://` 页面带 `apikey`/`authorization` 头跨域读写**均成功**（HTTP 200/201），PBKDF2 与界面渲染在本机形态下正常。
   - **APK 已重新打包**：`待办清单-V0.3.apk`（73KB，装的就是这份 index.html，手机端与网页端完全一致）。
   - 未做：S4 在线更新（FR-310）、S5 内置通道与内置 AI（FR-313）、S6 两处小修（FR-311/312）。
+- **2026-10-17（晚）· 新增腾讯云 COS 后端（本版主推）**
+  - 背景：用户嫌自建服务器贵；调研后改为**对象存储**（只存一个 JSON 文件，比数据库更贴合"整包快照"方案）。
+  - `CLOUD` 新增 `kind='cos'`：`cosAuth`（HMAC-SHA1 两层签名）/ `cosGet` / `cosPut`，只用 `fetch` + WebCrypto，**不引入 SDK**。
+  - **签名算法已用腾讯云官方 SDK（cos-js-sdk-v5）交叉验证，三种场景逐字节一致**；`tests/cos-sync.js` 26 项覆盖签名/读写/404/403/两种后端校验/配置码/界面。
+  - `SYNC.filled()` 按后端类型校验不同字段；配置码带上 bucket/region/secretId；配置页加服务商切换（字段随类型变）。
+  - `CLOUD.req` 顺带把网络失败细分：`NET_DNS`（域名解析不到）/ `NET_CUT`（连到一半断）/ `NET_CERT`（证书），不再一律报"不给跨域"。
+  - 浏览器实测（无头 Chrome 打开 `file://`）：首次推送 → 无改动不重复传 → 对方改动拉回合并，全通。
+  - 新增 `docs/腾讯云COS怎么用.md`（注册实名 → 建桶 → 配 CORS → 子账号密钥 → 填 App → 排错）。
+  - **本轮未打包 APK**（用户要求先做好网页端）。
+- **2026-10-17 · 适配 Supabase 新 key 体系（两处必修的坑）**
+  - `CLOUD.hdr`：**新版 publishable key（`sb_publishable_…`）只能走 `apikey` 头**，塞进 `Authorization: Bearer` 会被平台当 JWT 解析后整条请求拒绝。现在只有 `eyJ` 开头的老式 JWT 才补 Bearer 头。
+  - 建表脚本补第 4 段 **GRANT**（`grant select,insert,update,delete on public.todo_state to anon, authenticated`）—— 缺这句表建好了也读写不了（报权限错误）。
+  - 新增 `tools/check-supabase.js`：填地址+密钥即可自检（表在不在 / 能读 / 能写 / 能删），红字直指缺什么；发现填了 secret key 会直接拦下。
+  - `docs/V0.3-云同步怎么用.md` 的「换 Supabase」章节按 2026 现状重写（publishable key、四段 SQL、先自检再填 App、Data API 暴露）。
+  - 测试 `tests/cloud-sync.js` 加 4 项（两种密钥头形态、中文密钥拦截、脚本含 GRANT），现共 35 项；全量 9 个脚本通过。
 - **2026-10-16（第二次修订）· 方向性调整：主通道改为「自带后端」**
   - **起因**：用户明确要求 **APK 离线可用、网页双击可用**，且云服务应以"填地址 + Key / 账号密码"的方式使用。原地把主线定成内置通道，与之冲突。
   - **新增 §1.3「本地优先」底线**（4 条）与**硬规则 13**：云服务只是可选外挂，它挂了 App 照常用；后端选型必须满足"不校验访问来源"。

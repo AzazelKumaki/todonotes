@@ -73,6 +73,16 @@ global.fetch = async (url, opt) => {
     CLOUD.why('TABLE').indexOf('表还没建') >= 0 &&
     CLOUD.why('啥也没有').indexOf('后端返回') >= 0);
 
+  /* 2.5 密钥头的两种形态（Supabase 2026 换了新 key 体系） */
+  const hNew = CLOUD.hdr({ key: 'sb_publishable_abc123' });
+  const hOld = CLOUD.hdr({ key: 'eyJhbGciOiJIUzI1NiJ9.xxx' });
+  ok('新版 publishable key 只走 apikey 头（放 Bearer 会被当 JWT 拒掉）',
+    hNew.apikey === 'sb_publishable_abc123' && !hNew.Authorization);
+  ok('老版 JWT 密钥两个头都发（兼容）', hOld.apikey && hOld.Authorization === 'Bearer eyJhbGciOiJIUzI1NiJ9.xxx');
+  try { CLOUD.hdr({ key: '密钥带中文' }); ok('密钥含中文会被拦下', false); }
+  catch (e) { ok('密钥含中文会被拦下', e.message === 'KEYCHAR'); }
+  ok('建表脚本里有授权那一段', SQL_SETUP.indexOf('grant select, insert, update, delete') > 0);
+
   /* 3. 没开启就绝不该联网 */
   LAST = [];
   SYNC.clear();
@@ -81,7 +91,9 @@ global.fetch = async (url, opt) => {
 
   /* 4. 首次同步 → 推上去 */
   MODE = 'empty'; remoteRow = null; LAST = [];
-  SYNC.cfg.on = true; SYNC.cfg.base = cfg.base; SYNC.cfg.key = cfg.key; SYNC.cfg.pwd = cfg.pwd; SYNC.cfg.space = s1;
+  SYNC.cfg.on = true; SYNC.cfg.kind = 'supabase';
+  SYNC.cfg.supabase = { base: cfg.base, key: cfg.key };
+  SYNC.cfg.pwd = cfg.pwd; SYNC.cfg.space = s1;
   SYNC.cfg.at = ''; SYNC.cfg.fp = 'x';           // 假装本机改过
   let r = await SYNC.run({ manual: true });
   ok('首次同步 → 推上去', r.ok && r.how === 'pushed', JSON.stringify(r));
@@ -129,9 +141,12 @@ global.fetch = async (url, opt) => {
   ok('配置码带版本前缀', code.indexOf('DBSYNC1:') === 0);
   const backup = { ...SYNC.cfg };
   SYNC.clear();
-  ok('断开后配置清空', SYNC.cfg.base === '' && SYNC.cfg.on === false);
+  ok('断开后配置清空', SYNC.cfg.supabase.base === '' && SYNC.cfg.on === false);
   SYNC.applyCode(code);
-  ok('导入配置码 → 三样都回来', SYNC.cfg.base === backup.base && SYNC.cfg.key === backup.key && SYNC.cfg.pwd === backup.pwd);
+  ok('导入配置码 → 三样都回来',
+    SYNC.cfg.supabase.base === backup.supabase.base &&
+    SYNC.cfg.supabase.key === backup.supabase.key &&
+    SYNC.cfg.pwd === backup.pwd);
   try { SYNC.applyCode('随便一段字'); ok('乱码不会被误当配置码', false); }
   catch (e) { ok('乱码不会被误当配置码', true); }
 

@@ -30,7 +30,8 @@ window.onerror = function(m){ var o=document.getElementById('OUT');
         ' · crypto.subtle=' + !!(window.crypto && crypto.subtle));
     say('  本机待办 = ' + todos.length + ' 条');
 
-    SYNC.cfg.on = true; SYNC.cfg.base = '${BASE}'; SYNC.cfg.key = '${KEY}';
+    SYNC.cfg.on = true; SYNC.cfg.kind = 'supabase';
+    SYNC.cfg.supabase = { base: '${BASE}', key: '${KEY}' };
     SYNC.cfg.pwd = 'abc123'; SYNC.cfg.space = ''; SYNC.cfg.at = ''; SYNC.cfg.fp = '本机改过';
     SYNC.save();
 

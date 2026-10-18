@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>个人待办清单 · 交互原型 v2.6</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<title>个人待办清单</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%}
@@ -41,9 +41,9 @@ body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-s
 
 .view{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 16px 16px}
 .view::-webkit-scrollbar{width:0}
-.tabbar{flex:none;height:95px;display:flex;align-items:flex-start;justify-content:center;padding-top:12px;
+.tabbar{flex:none;height:95px;display:flex;align-items:flex-start;justify-content:center;padding:12px 12px 0;
   background:var(--bg)}
-.tabcapsule{width:348px;height:62px;background:#fff;border:1px solid var(--line);border-radius:36px;
+.tabcapsule{width:min(348px,100%);height:62px;background:#fff;border:1px solid var(--line);border-radius:36px;
   display:flex;padding:4px;box-shadow:0 4px 14px rgba(15,18,39,.08)}
 .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   border-radius:32px;font-size:13px;color:var(--ink4);cursor:pointer;background:none;border:none;
@@ -63,6 +63,13 @@ body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-s
 .sw-half.on{background:linear-gradient(90deg,var(--brand2),var(--brand));color:#fff;font-weight:600;
   box-shadow:0 6px 14px -4px rgba(0,0,0,.3)}
 .sw-half svg{width:20px;height:20px}
+
+/* ---------- 域切换器固定栏（2026-10-18 主人要求）----------
+   跟底部 Tab 栏一样常驻不滚动：以前切换器写在每一屏的最上面，跟着 .view 一起滚走了。
+   现在它是 .phone  flex 列里的独立一栏（render() 往里灌内容），
+   二级页（详情/收件箱/设置项）照旧隐藏，行为与旧版一致。 */
+.domainbar{flex:none;padding:12px 16px 4px;background:var(--bg)}
+.domainbar .switch{margin-top:0}
 
 /* ---------- 通用卡片 / 行 ---------- */
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:var(--pad)}
@@ -121,8 +128,8 @@ button.field:hover{background:#F8FAFC;border-color:var(--brand2)}
 .calgrid{display:flex;flex-direction:column;gap:2px}
 .calweek{display:flex;gap:2px}
 .calhead{display:flex;gap:2px;margin-bottom:2px}
-.calhead div{width:46px;text-align:center;font-size:13px;color:var(--ink3)}
-.cell{width:46px;height:52px;border-radius:10px;padding:4px;display:flex;flex-direction:column;
+.calhead div{flex:1;min-width:0;text-align:center;font-size:13px;color:var(--ink3)}
+.cell{flex:1;min-width:0;width:auto;height:52px;border-radius:10px;padding:4px;display:flex;flex-direction:column;
   align-items:center;gap:2px;cursor:pointer;border:none;background:none;font-family:inherit;position:relative}
 .cell.empty{cursor:default}
 .cellnum{font-size:13px;font-weight:500;color:var(--ink)}
@@ -248,6 +255,34 @@ button.field:hover{background:#F8FAFC;border-color:var(--brand2)}
   padding:20px 22px;box-shadow:0 8px 24px rgba(15,23,42,.10)}
 .notes h3{font-size:15px;margin-bottom:8px;color:#0F172A}
 .notes code{background:#F1F5F9;padding:1px 5px;border-radius:4px;font-size:12px}
+
+/* ---------- APK 真机模式（放在样式表末尾：同特异性时后者胜，才能盖住前面的原型规则） ----------
+   同一个 index.html 两种形态：
+   · 电脑上双击打开 = 原型（手机外壳 + 右侧说明卡，照旧）
+   · 安卓 APK 里打开 = app-mode（由文首脚本按 UA 认领）：
+     外壳撑满整屏、去掉圆角阴影；假状态栏 / 桌面说明卡 /
+     原型屏幕标签（A1·A2…）全部隐藏；页面不再比手机大、不能拖动。
+   窄窗口（<900px，比如手机浏览器直接打开）自动走同一套撑满样式。 */
+body.app-mode{padding:0;display:block;background:var(--bg);width:100vw;
+  height:100vh;height:100dvh;overflow:hidden;overscroll-behavior:none}
+body.app-mode .phone{width:100%;height:100%;border-radius:0;box-shadow:none;
+  /* 让出手机真实状态栏 / 底部手势条（含刘海）：
+     --sysbar-* 由安卓壳用原生 insets 注入（已除密度换算成 dp；真机实测 setFitsSystemWindows
+     对 WebView 无效、且 WindowInsets 是物理像素不除密度会放大 2~3 倍，两个坑都踩过）；
+     env(safe-area-inset-*) 是兜底（viewport-fit=cover 已开，手机浏览器直接打开时也管用）。
+     min() 上限：真状态栏最高约 60dp（打孔屏），再大只可能是 ROM 报了离谱值 ——
+     宁可内容贴一点，也不留一大块空白。变量没注入时（电脑/无头浏览器）两边都是 0，不留白。 */
+  padding-top:min(var(--sysbar-top,env(safe-area-inset-top,0px)),96px);
+  padding-bottom:min(var(--sysbar-bottom,env(safe-area-inset-bottom,0px)),48px)}
+body.app-mode .statusbar,body.app-mode .notes,body.app-mode .screentag{display:none!important}
+@media (max-width:900px){
+  body{padding:0;display:block;background:var(--bg);width:100vw;
+    height:100vh;height:100dvh;overflow:hidden;overscroll-behavior:none}
+  .phone{width:100%;height:100%;border-radius:0;box-shadow:none;
+    padding-top:min(env(safe-area-inset-top,0px),96px);
+    padding-bottom:min(env(safe-area-inset-bottom,0px),48px)}
+  .statusbar,.notes,.screentag{display:none!important}
+}
 </style>
 </head>
 <body class="theme-work">
@@ -260,6 +295,7 @@ button.field:hover{background:#F8FAFC;border-color:var(--brand2)}
       <div class="sb-wifi"></div><div class="sb-bat"><i></i></div>
     </div>
   </div>
+  <div class="domainbar" id="domainbar"></div>
   <div class="view" id="view"></div>
   <div class="tabbar" id="tabbar"></div>
 </div>
@@ -296,15 +332,29 @@ button.field:hover{background:#F8FAFC;border-color:var(--brand2)}
 <script>
 const APPVER = 'V0.3（M3 · 云同步）';
 
+/* ============ 运行环境认领：网页原型 vs 安卓 APK ============
+   壳里打开（UA 带 DaibanApp 标记，或存在 AppBridge）→ body 加 app-mode：
+   撑满全屏、隐藏原型专属件（假状态栏 / 桌面说明卡 / A1·A2 标签）。
+   电脑上双击打开没有任何标记 → 保持原型样子，照旧能看能点。 */
+(function(){
+  var isApp=false;
+  try{ isApp=/DaibanApp/i.test(navigator.userAgent||''); }catch(e){}
+  if(!isApp){
+    try{ isApp=(typeof AppBridge!=='undefined' && !!AppBridge.isApp && !!AppBridge.isApp()); }catch(e){}
+  }
+  try{ if(isApp && document.body && document.body.classList) document.body.classList.add('app-mode'); }catch(e){}
+})();
+
 /* ==================================================================
-   V0.2 · 提示词 PROMPTS —— 全篇唯一写 AI 话术的地方
+   V0.3 · 提示词 PROMPTS —— 全篇唯一写 AI 话术的地方
    ⚠️ 当前是草稿版 draft-1，**等你过目确认后才算定稿**。
    以后调语气 / 调规则，只改这个对象，其它代码一行都不用动。
    ================================================================== */
 const PROMPTS = {
   /* ① 解析提示词：2026-10-14 你确认「就按这个」→ 定稿
-     ② 复盘提示词：同日改成「俏皮吐槽风」→ 也已定稿，但想调随时说 */
-  v: 'V0.2 定稿（2026-10-14 · 解析按原文，复盘改俏皮吐槽版）',
+     ② 复盘提示词：同日改成「俏皮吐槽风」→ 也已定稿，但想调随时说
+     ③ 2026-10-18 解析规则 2 补凌晨特例（0~4 点「明天=当天」），定稿文档随之升为 V0.3 */
+  v: 'V0.3 定稿（2026-10-14 解析按原文 / 复盘俏皮吐槽版；2026-10-18 补凌晨 0~4 点「明天=当天」特例）',
 
   /* ① 解析：一句原话 → 结构化字段 */
   parseSys: `你是中文待办助手，把用户的一句话拆成结构化字段。
@@ -316,6 +366,9 @@ const PROMPTS = {
 2. due / time：依据【现在时刻】推算；支持 今天/明天/后天/下周X/N号/下个月/周X/X点/下午3点 等。
    没听出时间的，due 与 time 都返回空字符串，dueText 写「（没设时间）」。
    dueText 是给人看的，比如「明天 15:00」「10月18日」。
+   【凌晨特例】若【现在时刻】在 00:00~03:59 之间：用户说的「明天/明早/明晚/明日」一律按**今天**
+   推算（半夜说"明早交报告"要的是当天上午），「后天」按**明天**推算；04:00 及以后才按字面意思。
+   这是主人的实际用法，与规则版 doParse 口径一致，必须遵守。
 3. imp（重要）/ urg（紧急）**只有用户明确说出来才算 true**，没提就是 false：
    · imp=true 的信号：重要、关键、老板要看、关系考核、必须、要紧
    · urg=true 的信号：催、尽快、马上、来不及了、今天必须、临时插进来
@@ -465,22 +518,101 @@ const CLOUD={
       {name:'PBKDF2',salt:enc.encode(CLOUD.SALT),iterations:CLOUD.ITER,hash:'SHA-256'},km,256);
     return CLOUD.b64url(new Uint8Array(bits));
   },
-  hdr(cfg){ const k=String(cfg.key||'').trim();
+  /* 两种后端的密钥**分开存放**，切服务商时不会串（cfg 是嵌套的；兼容老的扁平结构） */
+  sb(cfg){ return cfg.supabase || cfg; },
+  cc(cfg){ return cfg.cos || cfg; },
+  hdr(cfg){ const k=String(CLOUD.sb(cfg).key||'').trim();
     /* HTTP 头里塞不下中文/全角符号 —— 不在这里拦住的话，会被当成"对方不给跨域"，把人带沟里 */
     if(k && /[^\x20-\x7E]/.test(k)) throw new Error('KEYCHAR');
-    return {apikey:k,'Authorization':'Bearer '+k,'Content-Type':'application/json'}; },
-  url(cfg){ return String(cfg.base||'').replace(/\/+$/,'')+'/rest/v1/todo_state'; },
+    const h={apikey:k,'Content-Type':'application/json'};
+    /* Supabase 新一代的 publishable key（sb_publishable_…）不是 JWT：
+       塞进 Authorization: Bearer 会被当成 JWT 去解析、然后整条请求被拒。
+       所以只有老式 JWT 密钥（eyJ 开头）才补 Bearer 头。 */
+    if(/^eyJ/.test(k)) h['Authorization']='Bearer '+k;
+    return h; },
+  url(cfg){ return String(CLOUD.sb(cfg).base||'').replace(/\/+$/,'')+'/rest/v1/todo_state'; },
+
+  /* ---------- 腾讯云 COS：把整包数据当成**一个 JSON 文件**存 ----------
+     不装 SDK，签名自己算（算法已用腾讯云官方 SDK 交叉验证，逐字节一致） */
+  isCOS(cfg){ return cfg.kind==='cos'; },
+  cosHost(cfg){ const c=CLOUD.cc(cfg);
+    return String(c.bucket||'')+'.cos.'+(c.region||'ap-guangzhou')+'.myqcloud.com'; },
+  cosPath(sid){ return '/daiban/'+encodeURIComponent(sid)+'.json'; },
+  hex(buf){ return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join(''); },
+  /* 还差哪几样没填 —— 先查再发请求，别把空数据丢给加密接口（会抛看不懂的原生错误） */
+  missing(cfg){
+    const m=[];
+    if(cfg.kind==='cos'){
+      const c=CLOUD.cc(cfg);
+      if(!c.bucket)   m.push('存储桶名称');
+      if(!c.secretId) m.push('SecretId');
+      if(!c.key)      m.push('SecretKey');
+    }else{
+      const c=CLOUD.sb(cfg);
+      if(!c.base) m.push('服务地址');
+      if(!c.key)  m.push('密钥');
+    }
+    if(!cfg.pwd) m.push('同步口令');
+    return m;
+  },
+  async cosAuth(cfg, method, path){
+    const c=CLOUD.cc(cfg);
+    /* 空密钥拿去算 HMAC，浏览器会抛 "HMAC key data must not be empty" —— 在这里拦成人话 */
+    if(!c.key || !c.secretId) throw new Error('EMPTY');
+    const enc=new TextEncoder();
+    const now=Math.floor(Date.now()/1000);
+    const signTime=(now-300)+';'+(now+7200);        /* 前后都留富余：设备时间不准也能用 */
+    const mk=async k=>crypto.subtle.importKey('raw',enc.encode(k),{name:'HMAC',hash:'SHA-1'},false,['sign']);
+    const signKey=CLOUD.hex(await crypto.subtle.sign('HMAC', await mk(c.key), enc.encode(signTime)));
+    const httpString=method+'\n'+path+'\n\nhost='+encodeURIComponent(CLOUD.cosHost(cfg))+'\n';
+    const sts='sha1\n'+signTime+'\n'+CLOUD.hex(await crypto.subtle.digest('SHA-1',enc.encode(httpString)))+'\n';
+    const sig=CLOUD.hex(await crypto.subtle.sign('HMAC', await mk(signKey), enc.encode(sts)));
+    return 'q-sign-algorithm=sha1&q-ak='+encodeURIComponent(c.secretId||'')
+      +'&q-sign-time='+signTime+'&q-key-time='+signTime
+      +'&q-header-list=host&q-url-param-list=&q-signature='+sig;
+  },
+  async cosGet(cfg,sid){
+    const host=CLOUD.cosHost(cfg), path=CLOUD.cosPath(sid);
+    const r=await CLOUD.req('https://'+host+path,{method:'GET',
+      headers:{authorization:await CLOUD.cosAuth(cfg,'get',path)}});
+    if(r.status===404) return null;                        /* 还没传过 —— 正常，不是错误 */
+    if(r.status===403) throw new Error('KEY');
+    if(r.status>=400) throw new Error('HTTP'+r.status);
+    const p=r.body||{};
+    return {space_id:sid, payload:p, updated_at:p.updatedAt||''};
+  },
+  async cosPut(cfg,sid,payload,at){
+    const host=CLOUD.cosHost(cfg), path=CLOUD.cosPath(sid);
+    const body=JSON.stringify({v:2, updatedAt:at,
+      todos:payload.todos, CATS:payload.CATS, CAT_STYLE:payload.CAT_STYLE, reviews:payload.reviews});
+    const r=await CLOUD.req('https://'+host+path,{method:'PUT',
+      headers:{authorization:await CLOUD.cosAuth(cfg,'put',path),'Content-Type':'application/json'},
+      body});
+    if(r.status===403) throw new Error('KEY');
+    if(r.status>=400) throw new Error('HTTP'+r.status);
+    return {space_id:sid, payload, updated_at:at};
+  },
+
   /* 所有对外请求都过这道门：统一超时 + 统一把 fetch 的 TypeError 翻成人话 */
   async req(url,opt,ms){
     const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(),ms||CLOUD.TIMEOUT);
     try{
       const r=await fetch(url,Object.assign({signal:ctl.signal},opt));
-      let body=null; try{ const t=await r.text(); body=t?JSON.parse(t):null; }catch(e){}
-      return {status:r.status, body};
-    } catch(e){ throw new Error(e && e.name==='AbortError' ? 'TIMEOUT' : 'CORS'); }
-    finally{ clearTimeout(tm); }
+      const text=await r.text();
+      let body=null; try{ body=text?JSON.parse(text):null; }catch(e){}
+      return {status:r.status, body, text};
+    } catch(e){
+      const c=e && e.cause, code=(c&&c.code)||'';
+      /* 域名解析不到 / 连不上 / 被墙，是三件不同的事，别全说成"不给跨域" */
+      if(e && e.name==='AbortError') throw new Error('TIMEOUT');
+      if(/ENOTFOUND|EAI_AGAIN/.test(code)) throw new Error('NET_DNS');
+      if(/ETIMEDOUT|ECONNRESET/.test(code)) throw new Error('NET_CUT');
+      if(/CERT|SSL/.test(code)) throw new Error('NET_CERT');
+      throw new Error('CORS');
+    } finally{ clearTimeout(tm); }
   },
   async getRow(cfg,sid){
+    if(CLOUD.isCOS(cfg)) return CLOUD.cosGet(cfg,sid);
     const u=CLOUD.url(cfg)+'?space_id=eq.'+encodeURIComponent(sid)+'&select=space_id,payload,updated_at';
     let r;
     try{ r=await CLOUD.req(u,{method:'GET',headers:CLOUD.hdr(cfg)}); }
@@ -494,6 +626,7 @@ const CLOUD={
     return Array.isArray(r.body)&&r.body[0] ? r.body[0] : null;
   },
   async putRow(cfg,sid,payload,at){
+    if(CLOUD.isCOS(cfg)) return CLOUD.cosPut(cfg,sid,payload,at);
     const row={space_id:sid,payload,updated_at:at,device_id:DEVID,app_ver:APPVER};
     let r;
     try{
@@ -508,8 +641,10 @@ const CLOUD={
   },
   /* 连接测试必须来自**一次真实读写**，不 ping、不只看 HTTP 200 */
   async test(cfg){
+    const miss=CLOUD.missing(cfg);
+    if(miss.length) return {ok:false, code:'EMPTY', msg:'还差：'+miss.join('、')};
     try{ await CLOUD.getRow(cfg,'__probe__'+CLOUD.hash32(String(Date.now())));
-         return {ok:true, msg:'连接成功 · 地址通、表在、也能读'}; }
+         return {ok:true, msg:'连接成功 · 地址通、也能读写'}; }
     catch(e){ return {ok:false, code:e.message, msg:CLOUD.why(e.message)}; }
   },
   why(c){ return ({
@@ -519,25 +654,58 @@ const CLOUD={
     TABLE:'地址是通的，但**表还没建** —— 去后端跑一下建表脚本（本页底部有）',
     CONFLICT:'两边都改过，得先选一边',
     HTTP404:'地址不对，找不到接口（一般是少了 /rest/v1）',
-    KEYCHAR:'密钥里有中文或全角符号 —— HTTP 头放不下它。重新粘贴一遍，注意别带上空格'
+    KEYCHAR:'密钥里有中文或全角符号 —— HTTP 头放不下它。重新粘贴一遍，注意别带上空格',
+    EMPTY:'还有必填的没填 —— 填完再测',
+    NET_DNS:'域名解析不到 —— 检查存储桶名（要带后面那串数字）和地域选对了没',
+    NET_CUT:'连到一半断了 —— 网络不通，或这个服务在你这边访问受阻',
+    NET_CERT:'证书校验没过 —— 检查系统时间是不是准的'
   })[c] || ('后端返回：'+(c||'未知错误')); }
 };
 
 const SYNC={
   CK:'todo.sync.v1',
-  cfg:{on:false, kind:'supabase', base:'', key:'', pwd:'', space:'', at:'', fp:''},
+  /* kind='supabase'：填 服务地址 + 密钥
+     kind='cos'     ：填 存储桶 + 地域 + SecretId + SecretKey（腾讯云对象存储）
+     ⚠️ 两家是**两套独立的格子**：切服务商不会把上家的密钥带过来 */
+  cfg:{on:false, kind:'supabase', pwd:'', space:'', at:'', fp:'',
+       supabase:{base:'', key:''},
+       cos:{bucket:'', region:'ap-guangzhou', secretId:'', key:''}},
   busy:false, applying:false, _t:null, hold:false,
   st:{state:'off', msg:'还没开 · 现在只在本地记录', last:'', err:''},
 
   load(){ try{
       const s=localStorage.getItem(SYNC.CK);
-      if(s) SYNC.cfg=Object.assign(SYNC.cfg, JSON.parse(s));
-      SYNC.cfg.key=deobf(SYNC.cfg.key||'');            /* 跟 AI Key 一个待遇，落盘混淆 */
+      if(!s) return;
+      const o=JSON.parse(s);
+      SYNC.cfg.on=!!o.on; SYNC.cfg.kind=o.kind||'supabase';
+      SYNC.cfg.pwd=deobf(o.pwd||'');                   /* 口令也混淆存，跟 AI Key 一个待遇 */
+      SYNC.cfg.space=o.space||''; SYNC.cfg.at=o.at||''; SYNC.cfg.fp=o.fp||'';
+      /* 两家各自的格子；老版本是扁平存的，顺手搬过来，不让已填的东西丢 */
+      SYNC.cfg.supabase=Object.assign({base:'',key:''}, o.supabase||{});
+      SYNC.cfg.cos=Object.assign({bucket:'',region:'ap-guangzhou',secretId:'',key:''}, o.cos||{});
+      if(!SYNC.cfg.supabase.base && o.base) SYNC.cfg.supabase.base=o.base;
+      if(!SYNC.cfg.supabase.key  && o.key)  SYNC.cfg.supabase.key=o.key;
+      if(!SYNC.cfg.cos.bucket    && o.bucket)   SYNC.cfg.cos.bucket=o.bucket;
+      if(!SYNC.cfg.cos.region    && o.region)   SYNC.cfg.cos.region=o.region;
+      if(!SYNC.cfg.cos.secretId  && o.secretId) SYNC.cfg.cos.secretId=o.secretId;
+      SYNC.cfg.supabase.key=deobf(SYNC.cfg.supabase.key||'');
+      SYNC.cfg.cos.key=deobf(SYNC.cfg.cos.key||'');
+      SYNC.cfg.cos.secretId=deobf(SYNC.cfg.cos.secretId||'');
     }catch(e){} },
-  save(){ try{
-      localStorage.setItem(SYNC.CK, JSON.stringify(Object.assign({},SYNC.cfg,{key:obf(SYNC.cfg.key)})));
+  save(){ try{ const c=SYNC.cfg;
+      localStorage.setItem(SYNC.CK, JSON.stringify({
+        on:c.on, kind:c.kind, pwd:obf(c.pwd||''), space:c.space, at:c.at, fp:c.fp,
+        supabase:{base:c.supabase.base, key:obf(c.supabase.key||'')},
+        cos:{bucket:c.cos.bucket, region:c.cos.region,
+             secretId:obf(c.cos.secretId||''), key:obf(c.cos.key||'')}
+      }));
     }catch(e){} },
-  ready(){ const c=SYNC.cfg; return !!(c.on && c.base && c.key && c.pwd); },
+  /* 两种后端要填的东西不一样，缺一样都不开工（各查各的格子） */
+  filled(){ const c=SYNC.cfg;
+    return c.kind==='cos'
+      ? !!(c.cos.bucket && c.cos.region && c.cos.secretId && c.cos.key && c.pwd)
+      : !!(c.supabase.base && c.supabase.key && c.pwd); },
+  ready(){ const c=SYNC.cfg; return !!(c.on && SYNC.filled()); },
   online(){ try{ return navigator.onLine!==false; }catch(e){ return true; } },
 
   /* 本机数据指纹：跟上次同步时不一样，就说明本机改过 */
@@ -613,22 +781,29 @@ const SYNC={
     SYNC._t=setTimeout(()=>{ SYNC.run(); },1200);
   },
 
-  /* ---- 配置码：给另一台设备用（含地址+密钥+口令，等于钥匙）---- */
+  /* ---- 配置码：给另一台设备用（含密钥+口令，等于钥匙）---- */
   code(){ const c=SYNC.cfg;
     return 'DBSYNC1:'+btoa(unescape(encodeURIComponent(
-      JSON.stringify({kind:c.kind, base:c.base, key:c.key, pwd:c.pwd})))); },
+      JSON.stringify({kind:c.kind, pwd:c.pwd, supabase:c.supabase, cos:c.cos})))); },
   applyCode(text){
     const s=String(text||'').trim();
     if(s.indexOf('DBSYNC1:')!==0) throw new Error('不是本应用的配置码');
     const o=JSON.parse(decodeURIComponent(escape(atob(s.slice(8)))));
-    if(!o.base||!o.key||!o.pwd) throw new Error('配置码不完整');
+    if(!o.pwd) throw new Error('配置码不完整');
     SYNC.cfg.kind=o.kind||'supabase';
-    SYNC.cfg.base=o.base; SYNC.cfg.key=o.key; SYNC.cfg.pwd=o.pwd; SYNC.cfg.space='';
+    SYNC.cfg.pwd=o.pwd; SYNC.cfg.space='';
+    /* 只覆盖这一家的格子，另一家保持原样 */
+    if(o.supabase) SYNC.cfg.supabase=Object.assign({base:'',key:''}, o.supabase);
+    if(o.cos)      SYNC.cfg.cos=Object.assign({bucket:'',region:'ap-guangzhou',secretId:'',key:''}, o.cos);
     SYNC.cfg.on=false; SYNC.save();
     return true;
   },
-  clear(){ SYNC.cfg={on:false,kind:'supabase',base:'',key:'',pwd:'',space:'',at:'',fp:''};
-    SYNC._t&&clearTimeout(SYNC._t); SYNC.save();
+  /* 断开 = 把**当前这家**的密钥抹掉；另一家的留着，回头切回去不用重填 */
+  clear(){ const kind=SYNC.cfg.kind||'supabase';
+    SYNC._t&&clearTimeout(SYNC._t);
+    SYNC.cfg={on:false, kind, pwd:'', space:'', at:'', fp:'',
+      supabase:{base:'', key:''}, cos:{bucket:'', region:'ap-guangzhou', secretId:'', key:''}};
+    SYNC.save();
     SYNC.say('off','未开启 · 本机数据没动'); }
 };
 
@@ -809,14 +984,26 @@ function render(keep){
   const _key=posKey();
   const _same=(_key===_lastPosKey);
   // 第③栏「我的」= 中性主题（设置与域无关）；收件箱沿用进入时的域
-  document.body.className = 'theme-' + (S.tab==='me' ? 'neutral'
-    : (S.sub==='inbox' ? S.inboxFrom : S.domain));
+  // ⚠️ 只换主题类，不能整体覆盖 className —— 否则会把启动时认领的 app-mode（APK 真机全屏）冲掉
+  document.body.classList.remove('theme-work','theme-life','theme-neutral');
+  document.body.classList.add('theme-' + (S.tab==='me' ? 'neutral'
+    : (S.sub==='inbox' ? S.inboxFrom : S.domain)));
   const v=document.getElementById('view'), tb=document.getElementById('tabbar');
   document.getElementById('phone').querySelectorAll('.fab').forEach(e=>e.remove());
 
   const isSub = !!S.sub;
   tb.style.display = isSub ? 'none' : 'flex';
   tb.innerHTML = isSub ? '' : tabbarHTML();
+  /* 域切换器 = 顶部固定栏（不随页面滚动消失）。「我的」页是灰色静态态（设置与域无关）；
+     二级页（详情 / 收件箱 / 设置项）没有切换器，跟旧版一致 */
+  const db=document.getElementById('domainbar');
+  if(db){
+    if(isSub){ db.style.display='none'; db.innerHTML=''; }
+    else{
+      db.style.display='block';
+      db.innerHTML = S.tab==='me' ? switchNeutralHTML() : switchHTML();
+    }
+  }
   v.innerHTML = isSub ? subHTML() : mainHTML();
   if(!isSub) fabHTML();
   /* 同一个页面内原地更新 → 保住滚动位置；换了页面（切 tab / 进出二级页 / 换条目）→ 回到顶部。
@@ -1070,7 +1257,7 @@ function noteHTML(){
   const od = sortList(listTodos().filter(overdue));
   /* 今天完成的（哪怕原定日期更早）也要留在首页，沉在底部 */
   const today = sortList(listTodos().filter(t=>t.due===TODAY || (t.done&&t.doneAt&&t.doneAt.startsWith(TODAY))));
-  return `${switchHTML()}
+  return `
   <div class="stack">
     <span class="screentag">${S.focused?'A2 · 记一笔（输入态 · 已聚焦）':'A1 · 记一笔（默认首屏 · 未聚焦）'}</span>
     <div class="inputbox ${S.focused?'focused':''}" data-act="focus">
@@ -1169,10 +1356,13 @@ function calendarHTML(){
       </button>`);
     if(buf.length===7) flush();
   }
+  /* 最后一行也要用空白格补满 7 位：.cell 是 flex:1，行内不足 7 格会被拉伸摊开，
+     日期就压在错误的列上（不跟表头一~日对齐）。补满后每格待在各自的列里。 */
+  while(buf.length && buf.length<7) buf.push('<div class="cell empty"></div>');
   flush();
   const grid=`<div class="calhead">${['一','二','三','四','五','六','日'].map(d=>`<div>${d}</div>`).join('')}</div>
     <div class="calgrid">${html}</div>`;
-  return `${switchHTML()}
+  return `
   <div class="stack">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 2px 0">
       <span style="font-size:18px;font-weight:600">${y} 年 ${m+1} 月</span>
@@ -1375,7 +1565,7 @@ function meHTML(){
         <span style="display:block;font-size:11px;color:${cs.color};margin-top:4px">${cs.sub}</span>
       </span>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>`;
-  return `${switchNeutralHTML()}
+  return `
   <div class="stack">
     <div class="hint" style="padding:6px 2px 0">设置与域无关 · 上方「工作 / 生活」为灰色静态态，不可切换</div>
     ${cloudCard}
@@ -1495,6 +1685,32 @@ function catsHTML(){
     </div>`;
 }
 
+/* V0.3 · 进设置页自动连一次（不弹窗、不打扰，只把状态刷新成最新）
+   规矩：① 配置不全就直接跳过 ② 已经是"已连接"就不重复测（省额度、省请求）
+        ③ 静默失败 —— 失败也只是状态栏一行字，绝不弹框 */
+function autoProbe(kind){
+  if(kind==='cloud'){
+    if(!SYNC.ready()) return;                       /* 没配过 → 不打扰 */
+    if(SYNC.st.state==='ok') return;                /* 已经连着 → 不用再测 */
+    SYNC.say('wait','正在自动连接…');
+    SYNC.run().then(()=>{ if(S.sub==='cloud') render(); }).catch(()=>{});
+    return;
+  }
+  if(kind==='ai'){
+    if(!AI.ready() || AI.cfg.ok) return;            /* 没配过、或上次就是通的 → 不动 */
+    AI.say('正在自动连接…', false);
+    (async()=>{
+      try{
+        await withTimeout(llmChat('你只回复两个字：正常','ping',8000), 8000, '响应超时');
+        AI.cfg.ok=true; AI.cfg.testedAt=nowStamp();
+        AI.say('连接成功 · 用的模型 '+AI.cfg.model, true);
+      }catch(err){ AI.say('连不上：'+((err&&err.message)||'未知原因'), false); }
+      if(S.sub==='ai') render();
+    })();
+    return;
+  }
+}
+
 /* ============ C4 云同步（V0.3 · 通道 A：自带后端）============
    三样东西：服务地址 / 密钥 / 同步口令。填完点【测试连接】，通过才给开启。
    它是锦上添花：**没它 App 照常用**，最多在下面看到一行状态。 */
@@ -1521,13 +1737,28 @@ const SQL_SETUP=[
 `alter table todo_state enable row level security;`,
 `drop policy if exists todo_state_space on todo_state;
 create policy todo_state_space on todo_state for all
-  to anon using (true) with check (true);`
+  to anon using (true) with check (true);`,
+/* 这道**授权**不能漏：不给角色开权限，表建好了也照样读写不了（报权限错误） */
+`grant select, insert, update, delete on table public.todo_state to anon, authenticated;`
 ].join('\n\n');
 
+const COS_REGIONS=[['ap-guangzhou','广州'],['ap-shanghai','上海'],['ap-beijing','北京'],
+                   ['ap-chengdu','成都'],['ap-nanjing','南京'],['ap-hongkong','中国香港']];
 function cloudHTML(){
-  const c=SYNC.cfg, st=SYNC.st;
-  const inp=(k,label,ph,type)=>`<div class="label">${label}</div>
-    <input class="tin" type="${type||'text'}" value="${esc(c[k])}" placeholder="${ph}" data-cf="${k}">`;
+  const c=SYNC.cfg, st=SYNC.st, isCOS=c.kind==='cos';
+  /* 用点路径读写（supabase.key / cos.key），两家各存各的 */
+  const get=p=>p.split('.').reduce((o,k)=>(o==null?o:o[k]), c);
+  const inp=(p,label,ph,type)=>`<div class="label">${label}</div>
+    <input class="tin" type="${type||'text'}" value="${esc(get(p)||'')}" placeholder="${ph}" data-cf="${p}">`;
+  const kindBtn=(v,label)=>`<button class="opt ${c.kind===v?'on':''}" data-act="ckind" data-v="${v}"><span class="radio"></span><span>${label}</span></button>`;
+  const cosFields = inp('cos.bucket','存储桶名称','todo-1250000000')
+    + `<div class="label">地域</div><select class="tin" data-cf="cos.region">`
+    + COS_REGIONS.map(r=>`<option value="${r[0]}" ${c.cos.region===r[0]?'selected':''}>${r[1]}</option>`).join('')
+    + `</select>`
+    + inp('cos.secretId','SecretId','AKIDxxxxxxxxxxxxxxxxxxxxxxxx')
+    + inp('cos.key','SecretKey','填在这里 · 落盘混淆','password');
+  const supaFields = inp('supabase.base','服务地址','https://xxxx.supabase.co')
+    + inp('supabase.key','密钥（publishable key）','sb_publishable_… 或 eyJ…');
   const stateColor={ok:'#059669',bad:'#DC2626',wait:'#B45309',conflict:'#B45309',off:'var(--ink3)',err:'#DC2626'};
   return `<div class="backrow"><button class="backbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="pagetitle">云同步</div>
@@ -1538,10 +1769,15 @@ function cloudHTML(){
         <b>配不好也没关系</b> —— 没配、断网、后端挂了，App 一切照常，只是不同步。
       </div>
 
-      <div class="grouptitle">连接信息 · 三样</div>
+      <div class="grouptitle">用哪家的云</div>
       <div class="section">
-        ${inp('base','服务地址','http://192.168.1.8:8787')}
-        ${inp('key','密钥（anon key）','填在这里 · 落盘混淆')}
+        ${kindBtn('cos','腾讯云 COS · 对象存储（推荐：国内快，免费额度用不完）')}
+        ${kindBtn('supabase','Supabase / 自建数据库（那边要先建表）')}
+      </div>
+
+      <div class="grouptitle">连接信息</div>
+      <div class="section">
+        ${isCOS?cosFields:supaFields}
         ${inp('pwd','同步口令（决定哪些设备共用一份数据）','自己想一个，记牢丢了找不回','password')}
         <div class="btnrow">
           <button class="btn ghost" data-act="ctest">测试连接</button>
@@ -1567,16 +1803,26 @@ function cloudHTML(){
 
       <div class="grouptitle">另一台设备怎么接</div>
       <div class="section">
-        <div class="hint" style="padding:0">一台设备【导出配置码】→ 另一台【导入配置码】，粘进去就配好了。<br>
-        ⚠️ <b style="color:#DC2626">配置码里含地址、密钥、口令，等于你家钥匙</b> —— 别发群、别存网盘。</div>
+        <div class="hint" style="padding:0">一台设备【导出配置码】→ 另一台【导入配置码】，粘进去就配好了 ——
+          地址、密钥、桶名、地域、口令<b>一起带过去</b>，不用一项一项填。<br>
+          ${isCOS?'':'两家的配置会一起带过去，到了那边想用哪家都行。'}<br>
+        ⚠️ <b style="color:#DC2626">配置码等于你家钥匙</b> —— 别发群、别存网盘。</div>
       </div>
 
-      <div class="grouptitle">后端还没建表？照抄这三段</div>
+      <div class="grouptitle">${isCOS?'用 COS 前要做的三件事':'后端还没建表？照抄这四段'}</div>
       <div class="section">
-        <pre style="white-space:pre-wrap;font-size:11px;line-height:1.6;background:var(--soft);padding:10px;border-radius:8px;margin:0;color:var(--ink2)">${esc(SQL_SETUP)}</pre>
+        ${isCOS
+        ? `<div class="hint" style="padding:0">
+              · 建一个<b>私有</b>存储桶 —— 桶名要<b>连后面那串数字一起</b>填进来（例：<code>todo-1250000000</code>）<br>
+              · 在桶的<b>跨域访问（CORS）</b>里加一条：来源 <code>*</code>、方法勾 <code>GET / PUT / HEAD</code>、Allow-Headers 填 <code>*</code><br>
+              · 拿一对<b>子账号</b>的 SecretId / SecretKey —— 别用主账号的，主账号权限太大<br>
+              <span style="font-size:12px;color:var(--ink3)">每一步怎么点，项目里有图文说明：<b>docs/腾讯云COS怎么用.md</b></span></div>`
+        : `<pre style="white-space:pre-wrap;font-size:11px;line-height:1.6;background:var(--soft);padding:10px;border-radius:8px;margin:0;color:var(--ink2)">${esc(SQL_SETUP)}</pre>
         <button class="btn ghost" data-act="csql">复制建表脚本</button>
-        <div class="hint" style="padding:0">去你的后端（Supabase / 自建 PostgREST 都行）的 SQL 编辑器里，<b>一次粘一段</b>跑完。<br>
-          ⚠️ 别把<b>最高权限</b>的那把钥匙填在上面 —— 只用权限最小的 anon key。</div>
+        <div class="hint" style="padding:0">去后端的 SQL 编辑器里<b>一次粘一段</b>跑完（四段：建表 → 开行级安全 → 建策略 → 授权）。<br>
+          ⚠️ 只填<b>权限最小</b>的那把钥匙：Supabase 上叫 <b>publishable key</b>（<code>sb_publishable_…</code>，老的 <code>eyJ…</code> 也行）。<br>
+          <b style="color:#DC2626">千万别填 sb_secret_… / service_role</b> —— 它能绕过所有限制，而 App 是可以被反编译的。<br>
+          如果报"表还不存在"：Supabase 刚建完表要等半分钟刷新缓存，或去 <b>Integrations → Data API</b> 里把 <code>todo_state</code> 勾上暴露。</div>`}
       </div>
 
       <div class="grouptitle">连不上先查这三条</div>
@@ -2006,9 +2252,16 @@ function doParse(text){
   const urg=/急|尽快|马上|今天必须|催|赶紧|临时|截止/.test(t);
   let due='',dueText='';
   const addN=n=>{const x=new Date();x.setDate(x.getDate()+n);return fmtD(x);};  /* 本地日期，不再走 toISOString（会转成 UTC 算错一天） */
+  /* 凌晨特例（2026-10-18 主人提的，当晚按主人要求把窗口从 2 点放宽到 4 点）：
+     00:00~03:59 之间说的「明天/明早/明晚/明日」其实指**当天**
+     —— 半夜说"明早交报告"，要的是当天上午，不是隔一天；「后天」顺势改成 +1 天。
+      过了凌晨 4 点就按字面来。AI 提示词里是同一条规则，两边口径必须一致。 */
+  const _early=new Date().getHours()<4;
   if(/今天/.test(t)){due=TODAY;dueText='今天';}
-  else if(/明天|明早|明日/.test(t)){due=addN(1);dueText='明天';}
-  else if(/后天/.test(t)){due=addN(2);dueText='后天';}
+  else if(/明天|明早|明晚|明日/.test(t)){
+    if(_early){due=TODAY;dueText='今天';}else{due=addN(1);dueText='明天';}
+  }
+  else if(/后天/.test(t)){due=addN(_early?1:2);dueText=_early?'明天':'后天';}
   else if(/下周/.test(t)){due=addN(7);dueText='下周';}
   else if(/下个月|下月/.test(t)){const x=new Date();x.setMonth(x.getMonth()+1);due=fmtD(x);dueText='下个月';}
   const m=t.match(/(\d{1,2})\s*[点時时](半|一刻|\d{1,2})?/);
@@ -2032,7 +2285,7 @@ function doParse(text){
   const title=t.replace(/[，。！,.!、；;]/g,' ')
     /* 「下周三」要整块摘掉，别剩个「三」；但要躲开「整理一下周报」里的「下周」两个字 */
     .replace(/(?<![一-龥])(下周|本周|这周|下个礼拜|礼拜)[一二三四五六日天1-7]?/g,'')
-    .replace(/(明天|今天|后天|明早|今晚|下周|下个月|之前|前|尽快|马上|记得|有空的时候|帮我|提醒我|麻烦|去|一下|上午|下午|中午|晚上|傍晚)/g,'')
+    .replace(/(明天|今天|后天|明早|明晚|明日|今晚|下周|下个月|之前|前|尽快|马上|记得|有空的时候|帮我|提醒我|麻烦|去|一下|上午|下午|中午|晚上|傍晚)/g,'')
     .replace(/(这个|那件事)?(挺|很|非常|特别)?(重要|要紧|关键|着急|急)/g,'')
     .replace(/(上午|下午|中午|晚上|明早|今晚)?\s*\d{1,2}\s*[点時时](半|一刻|\d{1,2})?前?/g,'')
     .replace(/\s+/g,' ').trim().replace(/[的了吧呢]$/,'').trim().slice(0,20);
@@ -2275,7 +2528,14 @@ function handleAct(e){
   if(act==='inbox'){ S.inboxFrom=S.domain; S.sub='inbox'; render(); return; }
   if(act==='day'){ S.day=v; S.sub='day'; render(); return; }
   if(act==='back'){ S.sub=null; render(); return; }
-  if(act==='cloud'||act==='ai'||act==='cats'||act==='bak'){ S.sub=act; render(); return; }
+  if(act==='cloud'||act==='ai'||act==='cats'||act==='bak'){
+    S.sub=act; render();
+    /* V0.3：进设置页就自己连一次 —— 地址/密钥/口令都是存下来的，不用重新填，
+       也不用在页面上再点一次「测试连接」。已经是"已连接"的就不重复打扰。 */
+    if(act==='cloud') autoProbe('cloud');
+    if(act==='ai')    autoProbe('ai');
+    return;
+  }
 
   if(act==='parse'){
     const txt=document.getElementById('qi').value.trim();
@@ -2539,9 +2799,10 @@ function handleAct(e){
     toast(`已导出 ${days.length} 天的备份`); return;
   }
   if(act==='provider'){ AI.pick(v); render(); return; }
+  if(act==='ckind'){ SYNC.cfg.kind=v; SYNC.save(); render(); return; }
   if(act==='ctest'){
     const c=SYNC.cfg;
-    if(!c.base||!c.key||!c.pwd){ toast('三样都填了才测'); return; }
+    if(!SYNC.filled()){ toast('上面的连接信息都填了才测'); return; }
     modal('正在测试连接…','正在真读写一次，请稍等…');
     CLOUD.test(c).then(r=>{
       if(r.ok) modal('连接成功 ✓',`<b>${esc(r.msg)}</b><br><br>这次结果来自一次真实的读写调用，不是猜的。<br>现在可以点【保存并开启】了。`);
@@ -2551,7 +2812,7 @@ function handleAct(e){
   }
   if(act==='csave'){
     const c=SYNC.cfg;
-    if(!c.base||!c.key||!c.pwd){ toast('地址 / 密钥 / 口令，三样都要填'); return; }
+    if(!SYNC.filled()){ toast('连接信息还差一样，填完再开'); return; }
     modal('正在开启…','先测得通，才允许开启');
     CLOUD.test(c).then(async r=>{
       if(!r.ok){ modal('没能开启', esc(r.msg)); return; }
@@ -2579,22 +2840,35 @@ function handleAct(e){
     return;
   }
   if(act==='ccode'){
-    if(!SYNC.cfg.base||!SYNC.cfg.key||!SYNC.cfg.pwd){ toast('先把三样填完'); return; }
+    if(!SYNC.filled()){ toast('先把连接信息填完'); return; }
     const code=SYNC.code();
-    if(copyText(code)) toast('配置码已复制 · 它等于钥匙，别外传');
-    else modal('配置码（请手动复制）',`<textarea class="tin" style="height:90px">${esc(code)}</textarea>`);
+    /* 两家的配置都塞进去了 —— 另一台导入后想用哪家都行 */
+    const hasCos=!!(SYNC.cfg.cos.bucket&&SYNC.cfg.cos.secretId&&SYNC.cfg.cos.key);
+    const hasSupa=!!(SYNC.cfg.supabase.base&&SYNC.cfg.supabase.key);
+    const what=[hasCos?'腾讯云 COS':null, hasSupa?'Supabase':null].filter(Boolean).join(' ＋ ');
+    const tip=`里面含：<b>${esc(what)}</b> 的连接信息 + 同步口令。<br>
+      另一台【导入配置码】粘进去，这些框会<b>一次填好</b>，不用一项一项填。<br>
+      ⚠️ <b style="color:#DC2626">它等于钥匙</b> —— 别发群、别存网盘。`;
+    if(copyText(code)) modal('配置码已复制', tip);
+    else modal('配置码（请手动复制）',
+      `<textarea class="tin" style="height:90px">${esc(code)}</textarea>` + tip);
     return;
   }
   if(act==='cincode'){
     modalInput('粘贴另一台的配置码','DBSYNC1:…','', async s=>{
       try{
         SYNC.applyCode(s);
+        const miss=CLOUD.missing(SYNC.cfg);
+        if(miss.length){ SYNC.save(); render();
+          modal('这份配置码不完整','缺了：<b>'+esc(miss.join('、'))+'</b><br><br>把这几项自己补上就行。');
+          return; }
         toast('已填入 · 正在测试…');
         const r=await CLOUD.test(SYNC.cfg);
         if(!r.ok){ modal('这份配置连不上', esc(r.msg)); return; }
         SYNC.cfg.on=true; SYNC.save(); render();
         const res=await SYNC.run({manual:true});
-        toast(res.ok?'配置码导入成功 ✓':'导入了，但第一次同步没成');
+        toast(res.ok?('配置码导入成功 ✓ · '+(SYNC.cfg.kind==='cos'?'腾讯云 COS':'Supabase'))
+                    :'导入了，但第一次同步没成');
         render();
       }catch(e){ modal('读不了这段配置码', esc(String((e&&e.message)||e))); }
     });
@@ -2612,7 +2886,13 @@ document.addEventListener('click', handleAct);
 
 document.addEventListener('input',e=>{
   if(e.target.id==='qi') S.input=e.target.value;
-  if(e.target.dataset.cf){ SYNC.cfg[e.target.dataset.cf]=e.target.value; SYNC.save(); }
+  if(e.target.dataset.cf){                       /* 支持 supabase.key / cos.bucket 这种点路径 */
+    const ks=String(e.target.dataset.cf).split('.'), v=e.target.value;
+    let cur=SYNC.cfg;
+    for(let i=0;i<ks.length-1;i++){ if(cur[ks[i]]==null) cur[ks[i]]={}; cur=cur[ks[i]]; }
+    cur[ks[ks.length-1]]=v;
+    SYNC.save();
+  }
   /* V0.2：AI 三个框实时写入（Key 落盘时即混淆）；改动后失效，"必须重测才给用"。
      select 触发的是 change 不是 input，所以两个都要听 */
   const aiKey = e.target && e.target.dataset ? e.target.dataset.ai : null;
@@ -2622,6 +2902,15 @@ document.addEventListener('input',e=>{
   }
 });
 document.addEventListener('change',e=>{
+  /* V0.3：云同步的下拉（比如 COS 的地域）也要实时存下来 */
+  const cfKey = e.target && e.target.dataset ? e.target.dataset.cf : null;
+  if(cfKey){                                     /* 下拉（地域）也按点路径存 */
+    const ks=String(cfKey).split('.'), v=e.target.value;
+    let cur=SYNC.cfg;
+    for(let i=0;i<ks.length-1;i++){ if(cur[ks[i]]==null) cur[ks[i]]={}; cur=cur[ks[i]]; }
+    cur[ks[ks.length-1]]=v;
+    SYNC.save(); render(); return;
+  }
   const aiKey = e.target && e.target.dataset ? e.target.dataset.ai : null;
   if(aiKey){
     AI.cfg[aiKey]=e.target.value;

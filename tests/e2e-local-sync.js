@@ -44,7 +44,9 @@ const ok = (n, c, e) => { c ? (pass++, console.log('  ✅ ' + n + (e ? '  → ' 
   ok('新环境里查不到任何数据（干净起步）', got0 === null);
 
   /* ---- 第一次同步：把本机 15 条推上去 ---- */
-  SYNC.cfg.on = true; Object.assign(SYNC.cfg, cfg); SYNC.cfg.space = sid;
+  SYNC.cfg.on = true; SYNC.cfg.kind = 'supabase';
+  SYNC.cfg.supabase = { base: cfg.base, key: cfg.key };
+  SYNC.cfg.pwd = cfg.pwd; SYNC.cfg.space = sid;
   SYNC.cfg.at = ''; SYNC.cfg.fp = '本机改过';
   const r1 = await SYNC.run({ manual: true });
   ok('首次同步成功', r1.ok && r1.how === 'pushed', JSON.stringify(r1));

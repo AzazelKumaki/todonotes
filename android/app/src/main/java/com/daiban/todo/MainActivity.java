@@ -4,14 +4,19 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.view.DisplayCutout;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -38,6 +43,10 @@ public class MainActivity extends Activity {
 
     private WebView web;
     private long lastBack = 0;
+    /* 系统栏高度（状态栏 + 底部手势条，含刘海）：注入给网页当 CSS 变量用 */
+    private int sysTop = 0, sysBottom = 0;
+    /* 键盘补弹重试计数（首屏 focus() 常发生在窗口拿到焦点之前，键盘不弹） */
+    private int kbdRetry = 0;
     /* 选文件的回调：网页里点「导入备份」会弹出系统文件选择器，选完到这里 */
     private ValueCallback<Uri[]> uploadCb;
     private static final int REQ_PICK_FILE = 1001;
@@ -81,6 +90,75 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** 把系统栏高度推成网页的 CSS 变量（--sysbar-top / --sysbar-bottom）。
+     *  Insets 可能在页面加载前就到了，所以 onPageFinished 里也会再补推一次。 */
+    private void pushInsets() {
+        try {
+            web.evaluateJavascript(
+                "try{(function(d){d.documentElement.style.setProperty('--sysbar-top','" + sysTop + "px');"
+                    + "d.documentElement.style.setProperty('--sysbar-bottom','" + sysBottom + "px');})(document)}catch(e){}",
+                null);
+        } catch (Exception e) { /* 页面还没就绪，onPageFinished 会补 */ }
+    }
+
+    /** 补弹软键盘（2026-10-18 真机 bug：首次打开 App 时输入框虽聚焦，键盘不弹；
+     *  切个页面反而弹了）。原因：网页的 focus() 发生在**窗口拿到焦点之前**，那次聚焦被系统忽略。
+     *  窗口一有焦点就补一次 InputMethodManager.showSoftInput。
+     *  只在网页自己处在「聚焦态且焦点就在输入框」时才弹（用户在二级页 / 我的页 / 已收起时不弹），
+     *  页面没加载完时重试几次（首屏慢的时候 focus 比窗口焦点晚到）。 */
+    private void nudgeKeyboard() {
+        if (web == null) return;
+        try {
+            web.evaluateJavascript(
+                "(function(){try{return (typeof S!=='undefined'&&S.focused"
+                    + "&&document.activeElement&&document.activeElement.id==='qi')?'1':'0'}"
+                    + "catch(e){return '0'}})()",
+                value -> {
+                    if (value != null && value.contains("1")) {
+                        kbdRetry = 0;
+                        try {
+                            web.requestFocus(View.FOCUS_DOWN);
+                            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+                            if (imm != null) imm.showSoftInput(web, InputMethodManager.SHOW_IMPLICIT);
+                        } catch (Exception e) { /* 个别ROM不给弹就算了，不崩 */ }
+                    } else if (kbdRetry < 8) {
+                        kbdRetry++;
+                        web.postDelayed(this::nudgeKeyboard, 150);
+                    }
+                });
+        } catch (Exception e) { /* 页面还没就绪 */ }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            setSystemBarIconsDark(true);   /* 个别ROM会重置这个状态，顺带补一手 */
+            nudgeKeyboard();   /* 窗口拿到焦点 = 补弹键盘的第一个时机 */
+        }
+    }
+
+    /** 系统栏图标（状态栏时间电量 + 底部手势条）用深色还是浅色。
+     *  dark=true → 深色图标（配浅色底）。API 30+ 走 WindowInsetsController，
+     *  更早的走 View 的 SYSTEM_UI_FLAG_LIGHT_*（minSdk 29 两种都覆盖）。 */
+    private void setSystemBarIconsDark(boolean dark) {
+        try {
+            if (Build.VERSION.SDK_INT >= 30) {
+                WindowInsetsController c = getWindow().getInsetsController();
+                if (c != null) {
+                    int flag = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                             | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                    c.setSystemBarsAppearance(dark ? flag : 0, flag);
+                }
+            } else {
+                View decor = getWindow().getDecorView();
+                int vis = decor.getSystemUiVisibility();
+                int flag = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+                decor.setSystemUiVisibility(dark ? (vis | flag) : (vis & ~flag));
+            }
+        } catch (Exception e) { /* 个别ROM不支持就保持系统默认，不崩 */ }
+    }
+
     /** 写到「下载 / 待办清单」——用 MediaStore 的好处：一个权限都不用申请 */
     private void saveToDownloads(String name, String content) throws Exception {
         if (Build.VERSION.SDK_INT < 29) throw new Exception("系统版本太低");
@@ -112,6 +190,15 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(web);
 
+        /* 状态栏 / 底部手势条的图标用深色（2026-10-18 用户反馈：白底白字看不清）：
+           App 三种主题的底色都是浅色（工作 #F8FAFC / 生活 #FFFBF5 / 我的 #FFFFFF），
+           而系统默认给的是白色图标 —— 不给它标这一笔，浅底下时间和电量就糊成一片。
+           别的 App「会跟着底色变」就是因为它们在底色变化时调了这个开关；
+           我们底色恒为浅色，所以一次性设成深色即可。
+           ⚠️ 将来若做「自定义背景图」且允许深色图，这里要改成按图片明暗动态切换
+              （网页侧采样图片亮度 → AppBridge 通知原生），见 PRD §9。 */
+        setSystemBarIconsDark(true);
+
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);      // ★ 数据全靠 localStorage，这个必须开
@@ -126,13 +213,57 @@ public class MainActivity extends Activity {
         s.setTextZoom(100);                           // 别让系统字体缩放把版面撑变形
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        /* 给网页一个「我在 APK 里」的标记：页面据此切成真机全屏形态
+           （撑满屏幕、去掉原型外壳和假状态栏），见 index.html 文首认领脚本 */
+        s.setUserAgentString(s.getUserAgentString() + " DaibanApp/" + BuildConfig.VERSION_NAME);
         if (Build.VERSION.SDK_INT >= 21) {
             s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         }
         web.setScrollbarFadingEnabled(true);
+        /* 边缘拖拽的蓝色回弹去掉 */
+        web.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        /* ★ 状态栏 / 底部手势条避让（2026-10-18 真机实测后重写）：
+           原来用的 web.setFitsSystemWindows(true) **在真机上不生效** —— WebView 会自己吞掉
+           WindowInsets，不翻译成 View padding，结果网页画到状态栏底下、和时钟电池重叠。
+           现在改成：原生读出真实的系统栏高度（含刘海/打孔），**换算成 dp** 后注入成网页的
+           CSS 变量 --sysbar-top / --sysbar-bottom，由 app-mode 样式负责留出空间。
+           ⚠️ WindowInsets 给的是**物理像素**，而网页的 CSS px 是密度无关像素（dp）——
+              不除密度会按屏幕密度放大 2~3 倍（2.625x 屏上 48dp 状态栏被留成 126px 空白，
+              2026-10-18 真机截图实测过，这是本轮修的第二个坑）。
+           env(safe-area-inset-*) 作兜底（viewport-fit=cover 已开）。 */
+        final float density = getResources().getDisplayMetrics().density;
+        web.setOnApplyWindowInsetsListener((v, insets) -> {
+            int topPx, bottomPx;
+            if (Build.VERSION.SDK_INT >= 30) {
+                topPx = insets.getInsets(WindowInsets.Type.systemBars()).top;
+                bottomPx = insets.getInsets(WindowInsets.Type.systemBars()).bottom;
+            } else {
+                topPx = insets.getSystemWindowInsetTop();
+                bottomPx = insets.getSystemWindowInsetBottom();
+            }
+            /* 刘海屏 / 打孔屏：安全区通常比状态栏还高一点，取大者 */
+            if (Build.VERSION.SDK_INT >= 28) {
+                DisplayCutout cut = insets.getDisplayCutout();
+                if (cut != null) {
+                    topPx = Math.max(topPx, cut.getSafeInsetTop());
+                    bottomPx = Math.max(bottomPx, cut.getSafeInsetBottom());
+                }
+            }
+            int top = Math.round(topPx / density);       /* 物理像素 → dp */
+            int bottom = Math.round(bottomPx / density);
+            if (top != sysTop || bottom != sysBottom) {
+                sysTop = top; sysBottom = bottom;
+                pushInsets();
+            }
+            return insets;   /* 不消费，WebView 该拿的还给它 */
+        });
         web.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView v, String url) {
                 return false;   // 全部在自己的壳里打开，不跳外部浏览器
+            }
+            @Override public void onPageFinished(WebView v, String url) {
+                pushInsets();   // 网页就绪，把系统栏高度补推过去（insets 可能比页面先到）
+                nudgeKeyboard(); // 页面加载完 = 补弹键盘的第二个时机（首屏慢的时候用得上）
             }
         });
         /* 「导入备份」要用：网页的请求文件 → 转给系统的文件选择器 */
