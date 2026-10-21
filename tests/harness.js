@@ -2,7 +2,11 @@
 const fs = require('fs'), vm = require('vm');
 
 class El {
-  constructor(tag){ this.tag=tag; this.dataset={}; this.style={}; this.children=[];
+  constructor(tag){ this.tag=tag; this.dataset={}; this.children=[];
+    this.style={ _v:{},
+      setProperty(k,v){ this._v[k]=String(v); },
+      removeProperty(k){ delete this._v[k]; },
+      getPropertyValue(k){ return this._v[k]||''; } };
     this.innerHTML=''; this.value=''; this.textContent=''; this.scrollTop=0;
     this.classList={add(){},remove(){},contains(){return false}}; }
   appendChild(c){ this.children.push(c); return c; }
@@ -43,7 +47,13 @@ module.exports = function load(){
   const html = fs.readFileSync('../prototype/index.html','utf8');
   let code = html.match(/<script>([\s\S]*?)<\/script>/)[1];
   code += '\n;globalThis.__app={todos,CATS,CAT_STYLE,reviews,S,AI,REV,BAK,dbSave:DB.save,doParse,doParseAsync,llmChat,inboxMissing,fetchModels,bakHTML,handleAct,applyParse,keepManual,manualCount,dropIndex,prepareImport,mergeImport,overwriteImport,parseImport,posKey,backupHTML,doExport,buildJSON,buildCSV,render,PROMPTS,fmtD,nowStamp,shift,TODAY,APPVER,'
-       + 'CLOUD,SYNC,DEVID,SQL_SETUP,copyText,cloudHTML,meHTML};';
+       + 'themeOf,themeFromHex,themeLum,mixHex,hexRGB,THEMES,THEME_CFG,applyTheme,clearThemeVars,TRASH,DB,'
+       + 'noteHTML,noteListHTML,hasFilter,matchFilter,applyFilter,clearFilter,searchHTML,UPD,aiErrText,'
+       + 'calPool,calResultHTML,refreshCalList,calendarHTML,calFilterHTML,calFilterBarHTML,calFilterBtnHTML,calF,openCalFilter,refreshCalBar,'
+       + 'CLOUD,SYNC,DEVID,SQL_SETUP,copyText,cloudHTML,meHTML,'
+       + 'sortList,dayHTML,itemHTML,listTodos,quadText,'
+       /* V0.4 发版审查新增的导出：titleOf 兜底 / newId 发号 / catStyle 跨设备稳定 / 日期选择器年份 */
+       + 'T,newId,titleOf,catStyle,catHash,openDatePicker,THEME_KEY,DEF_THEME};';
   vm.runInThisContext(code, {filename:'inline.js'});
   return globalThis.__app;
 };

@@ -50,6 +50,8 @@ public class MainActivity extends Activity {
     /* 选文件的回调：网页里点「导入备份」会弹出系统文件选择器，选完到这里 */
     private ValueCallback<Uri[]> uploadCb;
     private static final int REQ_PICK_FILE = 1001;
+    /** 下载目录名：导出的数据和更新用的 APK 都落在这儿 */
+    private static final String DIR_NAME = "待办清单";
 
     /** 网页 ⇄ 手机 之间的通道 */
     public class Bridge {
@@ -61,6 +63,84 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public int getVersionCode() { return BuildConfig.VERSION_CODE; }
+
+        /* V0.4 · FR-403：网页换了配色之后告诉 App 该用深色还是浅色系统栏图标
+           （Bridge 的方法跑在 WebView 线程，改 UI 必须切回主线程） */
+        @JavascriptInterface
+        public void setBarsDark(boolean dark) {
+            runOnUiThread(() -> setSystemBarIconsDark(dark));
+        }
+
+        /* V0.4 · FR-401：在线更新 —— 原生这边负责把 APK 下载下来。
+           为什么不从网页传二进制？WebView 的字符串通道会把二进制搞坏，
+           而且一次传几百 KB 容易把 Binder 撑爆 —— 传个地址让原生自己下最稳。 */
+        @JavascriptInterface
+        public void installApk(String url) {
+            if (url == null || (!url.startsWith("https://github.com/")
+                    && !url.startsWith("https://objects.githubusercontent.com/"))) {
+                Toast.makeText(this, "安装包地址不在允许的域名里", Toast.LENGTH_LONG).show();
+                return;
+            }
+            new Thread(() -> {
+                Exception err = null;
+                Uri uri = null;
+                try {
+                    if (Build.VERSION.SDK_INT < 29) throw new Exception("系统版本太低（需要安卓 10 以上）");
+                    String name = "daiban-" + System.currentTimeMillis() + ".apk";
+                    ContentValues cv = new ContentValues();
+                    cv.put(MediaStore.Downloads.DISPLAY_NAME, name);
+                    cv.put(MediaStore.Downloads.MIME_TYPE, "application/vnd.android.package-archive");
+                    cv.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + DIR_NAME);
+                    cv.put(MediaStore.Downloads.IS_PENDING, 1);
+                    ContentResolver cr = getContentResolver();
+                    Uri u = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+                    if (u == null) throw new Exception("没法在系统下载目录建文件");
+                    java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                    c.setConnectTimeout(15000); c.setReadTimeout(30000);
+                    c.setInstanceFollowRedirects(true);
+                    if (c.getResponseCode() >= 400) throw new Exception("下载失败（HTTP " + c.getResponseCode() + "）");
+                    java.io.InputStream in = c.getInputStream();
+                    java.io.OutputStream out = cr.openOutputStream(u);
+                    if (out == null) throw new Exception("没法写入下载目录");
+                    byte[] buf = new byte[16384];
+                    int n; long total = 0;
+                    while ((n = in.read(buf)) > 0) { out.write(buf, 0, n); total += n; }
+                    out.flush(); out.close(); in.close();
+                    if (total < 1024) throw new Exception("下载下来的文件太小，可能没下全");
+                    cv.clear();
+                    cv.put(MediaStore.Downloads.IS_PENDING, 0);
+                    cr.update(u, cv, null, null);
+                    uri = u;
+                } catch (Exception e) { err = e; }
+                final Exception e2 = err; final Uri u2 = uri;
+                runOnUiThread(() -> {
+                    if (e2 != null || u2 == null) {
+                        Toast.makeText(this, "没下下来：" + (e2 == null ? "未知原因" : e2.getMessage()),
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    try {
+                        Intent it = new Intent(Intent.ACTION_VIEW);
+                        it.setDataAndType(u2, "application/vnd.android.package-archive");
+                        it.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                        startActivity(it);
+                    } catch (Exception e) {
+                        Toast.makeText(this, "叫不起来安装界面，去「下载 / " + DIR_NAME + "」手动装",
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+            }).start();
+        }
+
+        /* 用手机浏览器打开一个网址（更新页兜底通路） */
+        @JavascriptInterface
+        public void openUrl(String url) {
+            try {
+                Intent it = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(it);
+            } catch (Exception e) { /* 没有浏览器就拉倒 */ }
+        }
 
         /* ---- 写文件：分块传，避免一次传太大把 Binder 撑爆（1000 条待办 JSON 约 1MB）---- */
         private StringBuilder buf = new StringBuilder();
@@ -168,7 +248,7 @@ public class MainActivity extends Activity {
         cv.put(MediaStore.Downloads.MIME_TYPE,
                 name.endsWith(".json") ? "application/json" : "text/csv");
         cv.put(MediaStore.Downloads.RELATIVE_PATH,
-                Environment.DIRECTORY_DOWNLOADS + "/待办清单");
+                Environment.DIRECTORY_DOWNLOADS + "/" + DIR_NAME);
         cv.put(MediaStore.Downloads.IS_PENDING, 1);
         Uri uri = cr.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
         if (uri == null) throw new Exception("无法创建文件");

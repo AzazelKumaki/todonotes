@@ -57,9 +57,12 @@ const ok = (n, c, e) => { c ? (pass++, console.log('  ✅ ' + n + (e ? '  → ' 
   ok('云端真的落了一行', !!key, String(key).slice(0, 12) + '…');
   ok('云端存的就是派生出来的 space_id', key === sid);
   ok('**云端查不到口令原文**', String(fs.readFileSync(DATA, 'utf8')).indexOf(PWD) < 0);
-  ok('推上去的条数对得上', disk.rows[key].payload.todos.length === app.todos.length,
-    disk.rows[key].payload.todos.length + ' 条');
-  ok('带了版本号，将来好排错', disk.rows[key].app_ver.indexOf('V0.3') >= 0, disk.rows[key].app_ver);
+  /* V0.4 FR-405：云端一律存密文 —— 端到端层面必须证明「摊开来也看不懂」 */
+  ok('**云端存的是密文，看不到任何待办内容**',
+    disk.rows[key].payload.__enc === 1 && JSON.stringify(disk.rows[key].payload).indexOf('买菜') < 0
+      && JSON.stringify(disk.rows[key].payload).indexOf('写周报') < 0,
+    JSON.stringify(disk.rows[key].payload).slice(0, 46) + '…');
+  ok('带了版本号，将来好排错', /^V0\.\d/.test(disk.rows[key].app_ver||''), disk.rows[key].app_ver);
 
   /* ---- 模拟第二台设备改了数据，本机再拉 ---- */
   const remote = disk.rows[key];

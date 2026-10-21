@@ -44,24 +44,25 @@ body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-s
 .tabbar{flex:none;height:95px;display:flex;align-items:flex-start;justify-content:center;padding:12px 12px 0;
   background:var(--bg)}
 .tabcapsule{width:min(348px,100%);height:62px;background:#fff;border:1px solid var(--line);border-radius:36px;
-  display:flex;padding:4px;box-shadow:0 4px 14px rgba(15,18,39,.08)}
+  display:flex;padding:4px;box-shadow:0 4px 14px rgba(15,18,39,.08);position:relative}
 .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   border-radius:32px;font-size:13px;color:var(--ink4);cursor:pointer;background:none;border:none;
-  font-family:inherit;font-weight:500}
-.tab.on{background:linear-gradient(90deg,var(--brand2),var(--brand));color:#fff;font-weight:600;
-  box-shadow:0 6px 14px -4px rgba(0,0,0,.25)}
+  font-family:inherit;font-weight:500;position:relative;z-index:1}
+/* 选中态的**底色**交给 .pill 那块会滑过去的药丸（见「衔接动效」一节），这里只管把字变白 */
+.tab.on{background:none;color:#fff;font-weight:600;box-shadow:none}
 .tab svg{width:20px;height:20px}
 
 /* ---------- 域切换器 ---------- */
 .switch{width:100%;height:56px;background:#fff;border:1px solid var(--line);border-radius:28px;padding:5px;
-  display:flex;gap:4px;margin-top:8px;box-shadow:0 4px 14px rgba(15,18,39,.08);flex:none}
+  display:flex;gap:4px;margin-top:8px;box-shadow:0 4px 14px rgba(15,18,39,.08);flex:none;position:relative}
 /* 灰色静态态：左右两半各占一边，都不可点 */
 .switch.neutral{background:#F1F5F9;border-color:#E2E8F0;box-shadow:none}
 .sw-half.neutral{color:#94A3B8;cursor:default}
 .sw-half{flex:1;border-radius:23px;display:flex;align-items:center;justify-content:center;gap:8px;
-  font-size:16px;border:none;cursor:pointer;font-family:inherit;color:var(--ink4);font-weight:500;background:none}
-.sw-half.on{background:linear-gradient(90deg,var(--brand2),var(--brand));color:#fff;font-weight:600;
-  box-shadow:0 6px 14px -4px rgba(0,0,0,.3)}
+  font-size:16px;border:none;cursor:pointer;font-family:inherit;color:var(--ink4);font-weight:500;background:none;
+  position:relative;z-index:1}
+/* 同底部 Tab：底色由 .pill-sw 那块药丸滑动承担 */
+.sw-half.on{background:none;color:#fff;font-weight:600;box-shadow:none}
 .sw-half svg{width:20px;height:20px}
 
 /* ---------- 域切换器固定栏（2026-10-18 主人要求）----------
@@ -98,8 +99,9 @@ body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-s
   border:2px solid #fff;border-top:0;border-left:0;transform:rotate(42deg)}
 .qbar{width:8px;height:42px;flex:none;border-radius:4px}
 .itxt{flex:1;min-width:0}
-.ititle{font-size:15px;font-weight:500;color:var(--ink);line-height:1.3}
-.isub{font-size:12px;color:var(--ink3);margin-top:4px}
+/* 标题 / 副标题各占一行：它们是 span（inline），不显式块化的话副标题会挤进标题同一行 */
+.ititle{display:block;font-size:15px;font-weight:500;color:var(--ink);line-height:1.3}
+.isub{display:block;font-size:12px;color:var(--ink3);margin-top:4px}
 /* 标记完成后：整条转灰 + 沉到当日最下方，但不消失 */
 .item.done{background:#F8FAFC}
 .item.done .ititle{color:var(--ink4);text-decoration:line-through}
@@ -240,6 +242,86 @@ button.field:hover{background:#F8FAFC;border-color:var(--brand2)}
 .cat-row.dropline{box-shadow:inset 0 3px 0 0 var(--brand)}
 .cat-row.dropafter{box-shadow:inset 0 -3px 0 0 var(--brand)}
 
+/* ---------- 衔接动效（2026-10-20 · V0.4 打磨）----------
+   原则：只做「进」不做「出」—— 关闭 / 取消一律瞬时完成，不拖手感，测试也不用等动画；
+   时长压在 180~340ms（iOS 同档），缓动统一用先快后慢的曲线，别抢内容的戏。 */
+
+/* ① 统一按压反馈：可点元素按下轻缩、松手弹回 */
+.row,.item,.btn,.tab,.sw-half,.opt,.aibtn,.fab,.cell,.regen,.backbtn,.sw-pick,.sw-sym,.tagpill,.dp-cell,button.field{
+  transition:transform .12s ease}
+.row:active,.item:active,.btn:active,.tab:active,.sw-half:active,.opt:active,.aibtn:active,
+.cell:active,.regen:active,.backbtn:active,.sw-pick:active,.sw-sym:active,.tagpill:active,
+.dp-cell:active,button.field:active{
+  transform:scale(.97)}
+.fab{transition:transform .16s cubic-bezier(.34,1.56,.64,1)}
+.fab:active{transform:scale(.88)}
+.tab,.sw-half{transition:transform .12s ease,color .22s ease}
+
+/* ⑧ 药丸滑块：Tab 栏 / 域切换器的选中态是**一块会滑过去**的药丸，不是各自瞬间换底色。
+   底栏每次 render 都重建，transition 用不上 → 把「上一格是第几个」写进 --f，用 animation 滑过去。
+   宽度写成格数的倒数（Tab 三格 / 域两格），translateX(100%) 正好移动一格。 */
+/* 底色用 background-color（**能插值**）+ 一层半透明白做「左亮右深」的渐变质感 ——
+   原来的 linear-gradient(var(--brand2),var(--brand)) 是图片，切域时只能瞬间跳色，
+   没法跟滑动一起渐变。改成纯色后，--fc（旧色）→ --brand（新色）就能一路过渡过去。 */
+.pill{position:absolute;top:4px;bottom:4px;left:4px;border-radius:32px;pointer-events:none;
+  background-color:var(--brand);
+  background-image:linear-gradient(90deg,rgba(255,255,255,.26),rgba(255,255,255,0) 72%);
+  box-shadow:0 6px 14px -4px rgba(0,0,0,.25);
+  /* 每格步进 = 自身宽 + 格间距（域切换器两格之间有 4px gap，Tab 栏没有） */
+  transform:translateX(calc(var(--i,0) * (100% + var(--g,0px))))}
+.pill-tab{width:calc((100% - 8px)/3)}
+.pill-sw{top:5px;bottom:5px;left:5px;border-radius:23px;width:calc((100% - 14px)/2);--g:4px;
+  box-shadow:0 6px 14px -4px rgba(0,0,0,.3)}
+/* 移动 + 换色同时进行：位置从旧格到新格，颜色从旧域的色到新域的色 */
+@keyframes pillmove{
+  from{transform:translateX(calc(var(--f,0) * (100% + var(--g,0px))));
+       background-color:var(--fc,var(--brand))}
+  to{transform:translateX(calc(var(--i,0) * (100% + var(--g,0px))));
+     background-color:var(--brand)}}
+/* 没挪位置但颜色变了（切域时底栏 Tab 的药丸就待在原格）→ 只播换色 */
+@keyframes pilltint{from{background-color:var(--fc,var(--brand))}to{background-color:var(--brand)}}
+.pill.mv{animation:pillmove .3s cubic-bezier(.22,.85,.3,1)}
+.pill.tint{animation:pilltint .34s ease}
+
+/* ② 页面切换进场：整屏轻移 + 淡入（render() 按方向挂类；同页原地更新不播，勾一条不该整屏晃） */
+@keyframes pageinF{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes pageinB{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+@keyframes pageinU{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.view.pagein-f{animation:pageinF .28s cubic-bezier(.22,.85,.3,1)}
+.view.pagein-b{animation:pageinB .28s cubic-bezier(.22,.85,.3,1)}
+.view.pagein-u{animation:pageinU .24s cubic-bezier(.22,.85,.3,1)}
+
+/* ③ A2 聚焦面板展开：**整块**从输入框底下平移下来（不是一行行冒出来 —— 那样太碎）。
+   max-height 从 0 撑开 = 把下面的内容「推开」而不是瞬间跳位；再叠一点向下位移，
+   看起来就是这块面板从上面那个框里被抽出来。 */
+@keyframes panelopen{from{opacity:0;max-height:0;transform:translateY(-18px)}
+                     to{opacity:1;max-height:640px;transform:none}}
+.section.panelin{animation:panelopen .26s cubic-bezier(.22,.85,.3,1);overflow:hidden}
+.inputbox{transition:box-shadow .25s ease}
+
+/* ④ 勾选完成：圆圈 pop + 对勾画出 + 整条在新位置落定；取消完成用同一套反向感知 */
+@keyframes cpop{0%{transform:scale(.55)}55%{transform:scale(1.22)}100%{transform:scale(1)}}
+@keyframes checkin{from{opacity:0;transform:rotate(42deg) scale(.2)}to{opacity:1;transform:rotate(42deg) scale(1)}}
+@keyframes itemset{from{opacity:.25;transform:translateY(6px)}to{opacity:1;transform:none}}
+.item.fx-on .circle,.item.fx-off .circle{animation:cpop .34s cubic-bezier(.34,1.56,.64,1)}
+.item.fx-on .circle.done::before{animation:checkin .26s ease both}
+.item.fx-on,.item.fx-off{animation:itemset .32s ease}
+
+/* ⑤ toast：底部滑入，退场前淡出下移（.bye 由 toast() 挂上） */
+@keyframes toastin{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+.toast{animation:toastin .22s cubic-bezier(.22,.85,.3,1)}
+.toast.bye{opacity:0;transform:translate(-50%,8px);transition:opacity .24s ease,transform .24s ease}
+
+/* ⑥ 弹窗：遮罩淡入 + 弹窗轻微放大落定；原地重建（选颜色 / 翻月历）不重播（.reinit） */
+@keyframes maskin{from{opacity:0}to{opacity:1}}
+@keyframes modalin{from{opacity:0;transform:scale(.94) translateY(12px)}to{opacity:1;transform:none}}
+.modal-mask{animation:maskin .18s ease}
+.modal{animation:modalin .26s cubic-bezier(.2,.9,.35,1.12)}
+.modal-mask.reinit,.modal.reinit{animation:none}
+
+/* ⑦ 域切换：外壳 / 底栏 / 切换器的底色平滑过渡（切换时颜色是「渐变过去」不是「啪一下跳走」） */
+.phone,.tabbar,.domainbar,.switch{transition:background-color .25s ease,border-color .25s ease}
+
 /* ---------- 弹窗 ---------- */
 .modal-mask{position:absolute;inset:0;background:rgba(15,23,42,.45);z-index:60;display:flex;
   align-items:center;justify-content:center;padding:24px}
@@ -304,7 +386,7 @@ body.app-mode .statusbar,body.app-mode .notes,body.app-mode .screentag{display:n
   <h3>可点的地方</h3>
   • <b>一进来就是 A2</b>：输入框聚焦，六项字段面板直接展开在下面<br>
   • 聚焦态三条路：直接【保存】→ 进收件箱 · 点 <code>✦</code> 解析后【保存】 · 手工填完【保存】<br>
-  • 退出 A2 回 A1：点【<b>再改改</b>】、点<b>输入框外任意处</b>、或按 <code>Esc</code><br>
+  • 退出 A2 回 A1：点【<b>返回</b>】、点<b>输入框外任意处</b>、或按 <code>Esc</code><br>
   • 顶部「工作 / 生活」切换 → 整站配色 + 数据都变<br>
   • 记一笔：打字 → 点 <code>✦</code> 解析 → 面板展开 → 保存<br>
   • 列表中：<b>点条目</b>进详情 · <b>点左边圆圈</b>只标完成<br>
@@ -325,12 +407,12 @@ body.app-mode .statusbar,body.app-mode .notes,body.app-mode .screentag{display:n
   • 日历点某天 → 顶部是<b>当天的复盘</b>（跨域一句话 + 完成/逾期统计 · 生成后可点【重新生成】）<br>
   • 复盘只对<b>昨天及更早</b>生成（最多回溯 7 天），今天的总结明天才出<br>
   • 导出备份 → 选范围 → <b>真的下载</b> JSON + 两份都可以：CSV 带 BOM，Excel 打开不乱码<br>
-  • 回收站可恢复 · 自定义背景图可分别换两个域<br>
+  • 回收站可恢复 · 换配色可分别给工作 / 生活各一套<br>
   • 本地自动备份<b>没有入口</b>：每次打开自动存本机一份，保留 30 天，不含 Key
 </div>
 
 <script>
-const APPVER = 'V0.3（M3 · 云同步）';
+const APPVER = 'V0.4（M4 · 更新与配色）';
 
 /* ============ 运行环境认领：网页原型 vs 安卓 APK ============
    壳里打开（UA 带 DaibanApp 标记，或存在 AppBridge）→ body 加 app-mode：
@@ -421,9 +503,15 @@ const PALETTE=['#DC2626','#F59E0B','#10B981','#2563EB','#8B5CF6','#EC4899','#089
 /* 符号用**具象物件**而不是几何图形 —— 一眼就知道这堆是什么事 */
 const SYMBOLS=['💼','📊','📝','🖊️','📎','🗂️','💻','📈','🎯','📌','☎️','🧾','🔧','💡',
                '🏠','👨‍👩‍👧','❤️','🏃','🍎','🚗','💰','🛒','🧹','⏰'];
+/* 没被用户改过的分类：按**名字本身**算出颜色和符号
+   ⚠️ 不能像以前那样按「已经分配了几个」往下顺延 —— 那样手机和电脑上新建分类的先后不同，
+   同一个分类会被分到不一样的颜色，一同步就互相跳。用名字算出来的结果，两台永远一致。 */
+function catHash(s){ let h=2166136261; const x=String(s||'');
+  for(let i=0;i<x.length;i++){ h^=x.charCodeAt(i); h=Math.imul(h,16777619); }
+  return h>>>0; }
 function catStyle(name){
   if(!CAT_STYLE[name]){
-    const i=Object.keys(CAT_STYLE).length;
+    const i=catHash(name);
     CAT_STYLE[name]={color:PALETTE[i%PALETTE.length], symbol:SYMBOLS[i%SYMBOLS.length]};
   }
   return CAT_STYLE[name];
@@ -451,10 +539,40 @@ const shift=n=>{const d=new Date();d.setDate(d.getDate()+n);return fmtD(d);};
    换 IndexedDB、或日后加云同步，都只改这一个地方，业务代码不动 */
 const DB={
   KEY:'todo.v0.1',
+  lastPurge:'',            /* V0.4 FR-404：回收站上次自动清理时间（每月最多扫一次） */
   load(){ try{ const s=localStorage.getItem(DB.KEY); return s?JSON.parse(s):null; }catch(e){ return null; } },
-  save(){ try{ localStorage.setItem(DB.KEY, JSON.stringify({v:2,todos,CATS,CAT_STYLE,reviews})); }catch(e){
+  save(){ try{ localStorage.setItem(DB.KEY, JSON.stringify({v:2,lastPurge:DB.lastPurge,todos,CATS,CAT_STYLE,reviews})); }catch(e){
     /* 存不下多半是空间满了 —— 先清最老的备份腾地方，再试一次 */
-    BAK.prune(7); try{ localStorage.setItem(DB.KEY, JSON.stringify({v:2,todos,CATS,CAT_STYLE,reviews})); }catch(e2){} }
+    BAK.prune(7); try{ localStorage.setItem(DB.KEY, JSON.stringify({v:2,lastPurge:DB.lastPurge,todos,CATS,CAT_STYLE,reviews})); }catch(e2){} }
+  }
+};
+
+/* ==================================================================
+   V0.4 · 回收站自动清理（FR-404）
+   删掉的东西先在回收站躺 30 天；启动时扫一次、每月最多扫一次，不为难开机速度。
+   ⚠️ 保守口径：没有删除时间（老数据）的条目**永远不动**，宁可留着也不误删。
+   ================================================================== */
+const TRASH={
+  DAYS:30,
+  purge(){
+    try{
+      const cur=TODAY.slice(0,7);                       /* YYYY-MM */
+      if(DB.lastPurge && DB.lastPurge.slice(0,7)===cur) return 0;   /* 本月已扫过 */
+      const cut=new Date(); cut.setDate(cut.getDate()-TRASH.DAYS);
+      /* 只比日期、不比时刻：整 30 天的那条当天还能翻出来恢复，第 31 天才真删 */
+      const cutDay=fmtD(cut);
+      let n=0;
+      for(let i=todos.length-1;i>=0;i--){
+        const t=todos[i];
+        if(!t.deleted) continue;
+        if(!t.deletedAt) continue;                      /* 老数据没有删除时间 → 留着不动 */
+        if(String(t.deletedAt).slice(0,10)>=cutDay) continue;   /* 还在期限内 → 可恢复 */
+        todos.splice(i,1); n++;
+      }
+      DB.lastPurge=nowStamp();
+      if(n) DB.save();
+      return n;
+    }catch(e){ return 0; }
   }
 };
 
@@ -530,6 +648,39 @@ const CLOUD={
        所以只有老式 JWT 密钥（eyJ 开头）才补 Bearer 头。 */
     if(/^eyJ/.test(k)) h['Authorization']='Bearer '+k;
     return h; },
+  /* ---------- V0.4 FR-405：上传前用同步口令派生密钥加密 ----------
+     ① 只用浏览器自带的 WebCrypto（AES-GCM + PBKDF2），不引第三方库
+     ② 密钥由**同步口令**在本机派生，口令和密钥都不上云、不进日志、不进备份
+     ③ 云端数据带 `__enc` 标记：没有标记 = 老版本明文，照原样读（平滑过渡）
+     ④ 解密失败（口令换了 / 数据坏了）只报错，**绝不清本机、绝不自动重传** */
+  /* 用户**想不想**加密（画勾选框用）；跟"实际上能不能加密"是两回事 ——
+     没填口令时也想让用户把意愿先勾上，而不是点了没反应。
+     下面 wantEnc 才是「实际能不能」：想加密 + 口令也填了，才真的加密。 */
+  encOn(cfg){ return cfg.enc!==false; },
+  wantEnc(cfg){ return cfg.enc!==false && !!cfg.pwd; },
+  b64s(u8){ let s=''; new Uint8Array(u8).forEach(b=>s+=String.fromCharCode(b)); return btoa(s); },
+  unb64(s){ const bin=atob(String(s||'')); const o=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) o[i]=bin.charCodeAt(i); return o; },
+  async encKey(pwd){
+    const enc=new TextEncoder();
+    if(!(globalThis.crypto&&crypto.subtle)) throw new Error('NOCRYPTO');
+    const km=await crypto.subtle.importKey('raw',enc.encode(pwd||''),'PBKDF2',false,['deriveKey']);
+    return crypto.subtle.deriveKey(
+      {name:'PBKDF2',salt:enc.encode(CLOUD.SALT+'.enc.v1'),iterations:CLOUD.ITER,hash:'SHA-256'},
+      km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  },
+  async wrap(payload,pwd){
+    const k=await CLOUD.encKey(pwd);
+    const iv=crypto.getRandomValues(new Uint8Array(12));
+    const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},k,new TextEncoder().encode(JSON.stringify(payload)));
+    return {__enc:1, alg:'AES-GCM', iv:CLOUD.b64s(iv), ct:CLOUD.b64s(ct)};
+  },
+  async unwrap(obj,pwd){
+    if(!obj || obj.__enc!==1) return obj;      /* 老版本的明文数据 → 原样返回，下次 push 自动变密文 */
+    const k=await CLOUD.encKey(pwd);
+    const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:CLOUD.unb64(obj.iv)},k,CLOUD.unb64(obj.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  },
   url(cfg){ return String(CLOUD.sb(cfg).base||'').replace(/\/+$/,'')+'/rest/v1/todo_state'; },
 
   /* ---------- 腾讯云 COS：把整包数据当成**一个 JSON 文件**存 ----------
@@ -579,12 +730,13 @@ const CLOUD={
     if(r.status===403) throw new Error('KEY');
     if(r.status>=400) throw new Error('HTTP'+r.status);
     const p=r.body||{};
-    return {space_id:sid, payload:p, updated_at:p.updatedAt||''};
+    return {space_id:sid, payload:(p.payload||p), updated_at:p.updatedAt||''};
   },
   async cosPut(cfg,sid,payload,at){
     const host=CLOUD.cosHost(cfg), path=CLOUD.cosPath(sid);
-    const body=JSON.stringify({v:2, updatedAt:at,
-      todos:payload.todos, CATS:payload.CATS, CAT_STYLE:payload.CAT_STYLE, reviews:payload.reviews});
+    /* COS 上就是一个 JSON 文件。加密包是**一个对象**，不能拆散成 todos/CATS 几个字段那样存，
+       否则 iv 与密文就丢了 —— 统一放进 payload 里；读取时两种格式都认（老数据是扁平的） */
+    const body=JSON.stringify({v:2, updatedAt:at, payload});
     const r=await CLOUD.req('https://'+host+path,{method:'PUT',
       headers:{authorization:await CLOUD.cosAuth(cfg,'put',path),'Content-Type':'application/json'},
       body});
@@ -611,8 +763,19 @@ const CLOUD={
       throw new Error('CORS');
     } finally{ clearTimeout(tm); }
   },
+  /* getRow / putRow 是唯一对外接口 —— 加密在这一层统一做，SYNC 与界面都不用改 */
   async getRow(cfg,sid){
-    if(CLOUD.isCOS(cfg)) return CLOUD.cosGet(cfg,sid);
+    const row = CLOUD.isCOS(cfg) ? await CLOUD.cosGet(cfg,sid) : await CLOUD.sbGet(cfg,sid);
+    if(!row || !CLOUD.wantEnc(cfg)) return row;
+    try{
+      const p = await CLOUD.unwrap(row.payload, cfg.pwd);
+      return Object.assign({}, row, {payload:p});
+    }catch(e){
+      if(e && e.message==='NOCRYPTO') return row;      /* 环境不支持就不折腾，照常明文用 */
+      throw new Error('ENC');                           /* 口令不对 / 数据坏 —— 不做猜测，交给 UI 说清楚 */
+    }
+  },
+  async sbGet(cfg,sid){
     const u=CLOUD.url(cfg)+'?space_id=eq.'+encodeURIComponent(sid)+'&select=space_id,payload,updated_at';
     let r;
     try{ r=await CLOUD.req(u,{method:'GET',headers:CLOUD.hdr(cfg)}); }
@@ -626,7 +789,16 @@ const CLOUD={
     return Array.isArray(r.body)&&r.body[0] ? r.body[0] : null;
   },
   async putRow(cfg,sid,payload,at){
-    if(CLOUD.isCOS(cfg)) return CLOUD.cosPut(cfg,sid,payload,at);
+    let p=payload, res;
+    if(CLOUD.wantEnc(cfg)){
+      try{ p=await CLOUD.wrap(payload,cfg.pwd); }
+      catch(e){ /* 环境不支持加解密 → 退回明文，同步照样能用（规则 13：不阻塞） */ }
+    }
+    res = CLOUD.isCOS(cfg) ? await CLOUD.cosPut(cfg,sid,p,at) : await CLOUD.sbPut(cfg,sid,p,at);
+    /* 对外交代的仍是本机这份明文 —— 密文只在传输那一瞬间存在 */
+    return Object.assign({}, res, {payload});
+  },
+  async sbPut(cfg,sid,payload,at){
     const row={space_id:sid,payload,updated_at:at,device_id:DEVID,app_ver:APPVER};
     let r;
     try{
@@ -658,7 +830,8 @@ const CLOUD={
     EMPTY:'还有必填的没填 —— 填完再测',
     NET_DNS:'域名解析不到 —— 检查存储桶名（要带后面那串数字）和地域选对了没',
     NET_CUT:'连到一半断了 —— 网络不通，或这个服务在你这边访问受阻',
-    NET_CERT:'证书校验没过 —— 检查系统时间是不是准的'
+    NET_CERT:'证书校验没过 —— 检查系统时间是不是准的',
+    ENC:'云端的数据解不开 —— 通常是<b>同步口令跟上次不一样</b>了（口令换了 = 换了一个空间），也可能是云端那份是旧版存的明文。<br><br>本机数据<b>一点没动</b>，也没往上传。要接着用：把口令改回原来那个，或者在「数据与备份」里把本机这份导出留个底，再重新配一次。'
   })[c] || ('后端返回：'+(c||'未知错误')); }
 };
 
@@ -667,7 +840,7 @@ const SYNC={
   /* kind='supabase'：填 服务地址 + 密钥
      kind='cos'     ：填 存储桶 + 地域 + SecretId + SecretKey（腾讯云对象存储）
      ⚠️ 两家是**两套独立的格子**：切服务商不会把上家的密钥带过来 */
-  cfg:{on:false, kind:'supabase', pwd:'', space:'', at:'', fp:'',
+  cfg:{on:false, kind:'supabase', pwd:'', space:'', at:'', fp:'', enc:true,   /* V0.4：云端加密，默认开 */
        supabase:{base:'', key:''},
        cos:{bucket:'', region:'ap-guangzhou', secretId:'', key:''}},
   busy:false, applying:false, _t:null, hold:false,
@@ -691,10 +864,11 @@ const SYNC={
       SYNC.cfg.supabase.key=deobf(SYNC.cfg.supabase.key||'');
       SYNC.cfg.cos.key=deobf(SYNC.cfg.cos.key||'');
       SYNC.cfg.cos.secretId=deobf(SYNC.cfg.cos.secretId||'');
+      SYNC.cfg.enc = (o.enc!==false);            /* V0.4 FR-405：云端加密默认开 */
     }catch(e){} },
   save(){ try{ const c=SYNC.cfg;
       localStorage.setItem(SYNC.CK, JSON.stringify({
-        on:c.on, kind:c.kind, pwd:obf(c.pwd||''), space:c.space, at:c.at, fp:c.fp,
+        on:c.on, kind:c.kind, pwd:obf(c.pwd||''), space:c.space, at:c.at, fp:c.fp, enc:(c.enc!==false),
         supabase:{base:c.supabase.base, key:obf(c.supabase.key||'')},
         cos:{bucket:c.cos.bucket, region:c.cos.region,
              secretId:obf(c.cos.secretId||''), key:obf(c.cos.key||'')}
@@ -801,7 +975,7 @@ const SYNC={
   /* 断开 = 把**当前这家**的密钥抹掉；另一家的留着，回头切回去不用重填 */
   clear(){ const kind=SYNC.cfg.kind||'supabase';
     SYNC._t&&clearTimeout(SYNC._t);
-    SYNC.cfg={on:false, kind, pwd:'', space:'', at:'', fp:'',
+    SYNC.cfg={on:false, kind, pwd:'', space:'', at:'', fp:'', enc:true,
       supabase:{base:'', key:''}, cos:{bucket:'', region:'ap-guangzhou', secretId:'', key:''}};
     SYNC.save();
     SYNC.say('off','未开启 · 本机数据没动'); }
@@ -864,12 +1038,29 @@ const AI = {
   say(s, ok){ AI.cfg.msg=s; AI.cfg.ok=!!ok; AI.save(); }
 };
 
-let uid = 100;
+/* 给新条目发号 —— **不再用单纯的 ++uid**（2026-10-21 发版审查修）。
+   老办法的坑：两台设备（手机 + 电脑）从同一份数据出发各自新建时，
+   由于各自的号都从本机的 max(id) 继续往后加，会发出**完全一样的 id**；
+   再同步时被当成同一条、按 updatedAt 互相覆盖 —— 另一台新建的那条就凭空没了。
+   现在改用「毫秒时间戳」：跨设备撞号的概率几乎为零，跟老数据里 1xx 这种号也不会打架。
+   同一毫秒里连开多条（比如批量解析）时往后顺延，保证本机内部也绝不重复。 */
+let _lastId = 0;
+function newId(){
+  /* 毫秒数再乘 1000 留出三位尾号的空间，尾号随机 —— 这样两台设备即使恰好在同一毫秒
+     新建条目，撞号的概率也只有千分之一；同一台设备同毫秒连开多条则由下面的循环兜住。 */
+  let id = Date.now()*1000 + Math.floor(Math.random()*1000);
+  /* ① 必须比本机已经发出过的号大（严格递增）② 必须不跟库里任何一条撞
+     —— 导入 / 云端拉回来的数据可能带着比现在更新的时间戳 */
+  let guard = 0;
+  while((id <= _lastId || todos.some(t=>t.id===id)) && guard++ < 10000) id++;
+  _lastId = id;
+  return id;
+}
 /* 数据模型（M1 补全）：
    imp / urg = 三态（null 未判断，true/false 用户选择），**存两个字段**，界面合并成一个四象限选择器；
    manual = 哪些字段是人工改过的（重新解析不得覆盖）；
    createdAt / updatedAt / source / parsed = 冲突判定与统计的依据 */
-const T = (o)=>Object.assign({id:++uid,done:false,imp:null,urg:null,cat:null,due:null,time:'',
+const T = (o)=>Object.assign({id:newId(),done:false,imp:null,urg:null,cat:null,due:null,time:'',
   remark:'',domain:null,pinned:false,inbox:false,deleted:false,doneAt:null,
   createdAt:nowStamp(),updatedAt:nowStamp(),source:'text',manual:{},parsed:false},o);
 
@@ -915,10 +1106,76 @@ const S = {
   day:'',                 // 当前查看的日期（'YYYY-MM-DD'）
   calY:null, calM:null,   // 日历当前显示的年月（启动时填今天）
   inboxFrom:'work',      // 进入收件箱时的域（决定配色）
+  /* V0.4 FR-406 搜索与筛选：纯内存过滤，不影响排序规则，不落库 */
+  q:'', fq:'', fcat:'', fst:'', qOpen:false,
+  /* 日历页筛选：一整套**独立**的条件 + 范围，跟首页搜索互不相干（用户要求两屏断开） */
+  calQ:'', calFq:'', calFcat:'', calFst:'', calScope:'month',
 };
 
+/* ============ 配色 FR-402/403（V0.4：替换原「自定义背景图」）============
+   ① 八套预设 + 取色器自定主色（其余颜色由主色自动派生）
+   ② 两个域各一套，切换域时整站配色跟着换
+   ③ 单独存 key ⇒ 写失败也只是"配色没换"，不会连累待办数据；天然不进备份/导出/配置码/云端
+   ④ 状态栏图标按背景明暗自动切深/浅（FR-403） */
+const THEMES=[
+  {k:'blue',   n:'静水蓝', brand:'#2563EB', brand2:'#63A0F5', bg:'#F8FAFC', soft:'#EFF6FF', brandink:'#1D4ED8'},
+  {k:'coral',  n:'珊瑚',   brand:'#F2784B', brand2:'#FF9E72', bg:'#FFFBF5', soft:'#FEF1E7', brandink:'#C2410C'},
+  {k:'green',  n:'苔绿',   brand:'#16A34A', brand2:'#4ADE80', bg:'#F7FCF8', soft:'#ECFDF3', brandink:'#15803D'},
+  {k:'violet', n:'紫藤',   brand:'#7C3AED', brand2:'#A78BFA', bg:'#FBF9FF', soft:'#F5F1FF', brandink:'#6D28D9'},
+  {k:'rose',   n:'玫瑰',   brand:'#E11D48', brand2:'#FB7185', bg:'#FFF8F9', soft:'#FFF1F3', brandink:'#BE123C'},
+  {k:'teal',   n:'湖青',   brand:'#0D9488', brand2:'#2DD4BF', bg:'#F6FCFB', soft:'#EAFBF7', brandink:'#0F766E'},
+  {k:'amber',  n:'琥珀',   brand:'#D97706', brand2:'#FBBF24', bg:'#FFFDF6', soft:'#FFF8E8', brandink:'#B45309'},
+  {k:'ink',    n:'石墨',   brand:'#334155', brand2:'#64748B', bg:'#F8FAFC', soft:'#EEF2F7', brandink:'#1E293B'},
+];
+const DEF_THEME={work:'blue', life:'coral'};
+const THEME_KEY='todo.theme.v1';
+const THEME_VARS=['--brand','--brand2','--bg','--soft','--brandink'];
+let THEME_CFG=(function(){ try{ return JSON.parse(localStorage.getItem(THEME_KEY)||'{}')||{}; }catch(e){ return {}; } })();
+function themeSave(){ try{ localStorage.setItem(THEME_KEY, JSON.stringify(THEME_CFG)); }catch(e){} }
+function hexRGB(h){
+  let x=String(h||'').replace('#','');
+  if(x.length===3) x=x.split('').map(c=>c+c).join('');
+  const n=parseInt(x||'000000',16);
+  return isNaN(n)?{r:0,g:0,b:0}:{r:(n>>16)&255,g:(n>>8)&255,b:n&255};
+}
+function mixHex(a,b,w){
+  const A=hexRGB(a),B=hexRGB(b);
+  const h=v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0');
+  return '#'+h(A.r+(B.r-A.r)*w)+h(A.g+(B.g-A.g)*w)+h(A.b+(B.b-A.b)*w);
+}
+/* 相对亮度：给状态栏图标深浅用（FR-403） */
+function themeLum(hex){ const c=hexRGB(hex); return (0.299*c.r+0.587*c.g+0.114*c.b)/255; }
+/* 自选主色 → 自动配出整套（品牌深浅 / 淡底 / 深字），保证文字始终读得清 */
+function themeFromHex(hex){ return {
+  brand:hex, brand2:mixHex(hex,'#FFFFFF',0.30), brandink:mixHex(hex,'#000000',0.22),
+  soft:mixHex(hex,'#FFFFFF',0.86), bg:mixHex(hex,'#FFFFFF',0.955),
+};}
+function themeOf(dm){
+  const c=THEME_CFG[dm]||{k:DEF_THEME[dm]};
+  if(c.custom&&c.brand) return themeFromHex(c.brand);
+  return THEMES.find(x=>x.k===c.k)||THEMES.find(x=>x.k===DEF_THEME[dm])||THEMES[0];
+}
+function clearThemeVars(){
+  const s=document.body&&document.body.style;
+  if(!s||!s.removeProperty) return;
+  THEME_VARS.forEach(v=>{ try{ s.removeProperty(v); }catch(e){} });
+}
+function applyTheme(dm){
+  const s=document.body&&document.body.style;
+  if(!s||!s.setProperty) return;
+  const p=themeOf(dm);
+  THEME_VARS.forEach(v=>{ try{ s.setProperty(v,p[v.slice(2)]); }catch(e){} });
+  try{
+    if(typeof AppBridge!=='undefined' && AppBridge.setBarsDark)
+      AppBridge.setBarsDark(themeLum(p.bg)>0.45);   /* 浅底 → 深色图标 */
+  }catch(e){}
+}
+
 /* ============ 工具 ============ */
-const TODAY=fmtD(new Date());          /* M1：真实系统日期，不再写死 '2026-10-15' */
+/* ⚠️ 用 let 不用 const：App 在后台挂一夜是常事（尤其 APK），第二天醒来日期必须跟着翻篇。
+   下面 init 里有一段跨零点自检，过 0 点就把它更新成新的今天并重画 ——
+   否则逾期判定 / 日历「今天」高亮 / 首页「逾期 + 今天」筛选会一直停在昨天。 */
+let TODAY=fmtD(new Date());   /* M1：真实系统日期，不再写死 '2026-10-15' */
 /* M1：四象限（重不重要 × 急不急）—— 存储仍是 imp / urg 两个字段，界面合并成一个选择器 */
 const quadText=(imp,urg)=> (imp==null||urg==null)?''
   : ((imp&&urg)?'马上做':(imp?'计划做':(urg?'快速处理':'有空再说')));
@@ -933,12 +1190,19 @@ const daysLate = t => {const a=new Date(t.due),b=new Date(TODAY);return Math.rou
 const listTodos = () => todos.filter(t=>!t.inbox && t.domain===S.domain && !t.deleted);
 const inboxTodos = () => todos.filter(t=>t.inbox && !t.deleted);
 
+/* 「标题为空 → 拿备注前 12 字顶上」的**唯一入口**（2026-10-21 统一出来的）。
+   以前这句话在全篇抄了九遍 `t.title||t.remark.slice(0,12)`，而且不兜底：
+   从外面导入的数据如果没有 remark 字段，`.slice` 直接抛错 → 整块渲染白掉。
+   现在一次性管住：remark 缺失也给得住。 */
+const titleOf = t => String((t&&t.title)||'').trim() || String((t&&t.remark)||'').slice(0,12);
+
 function fmtSub(t){
   /* 收件箱里还没解析的：提示去补字段 */
   if(t.inbox && !t.title) return '未解析 · 点进去补充字段';
-  /* 已完成：显示真实完成时刻，而不是原定时间 */
+  /* 已完成：显示真实完成时刻，而不是原定时间
+     （slice(5,10) 只取「月-日」—— 之前写成 slice(5) 会把时刻也吞进去，显示成「10月21 20:24日 20:24」） */
   if(t.done && t.doneAt)
-    return '完成于 '+t.doneAt.slice(5).replace('-','月')+'日 '+t.doneAt.slice(11,16)+(t.cat?' · '+t.cat:'');
+    return '完成于 '+t.doneAt.slice(5,10).replace('-','月')+'日 '+t.doneAt.slice(11,16)+(t.cat?' · '+t.cat:'');
   const p=[];
   if(overdue(t)) p.push('逾期 '+daysLate(t)+' 天');
   else if(t.due===TODAY && t.time) p.push(t.time);
@@ -947,16 +1211,22 @@ function fmtSub(t){
   return p.join(' · ')||'无时间 · 未归类';
 }
 
-/* 排序（v2.8 拍板口径）：置顶 > **逾期组**（组内按象限）> 正常四象限 > 已完成沉底 */
+/* 排序（2026-10-21 改口径）：置顶 > **逾期组**（组内只按轻重缓急，不看逾期了几天）
+   > 其余**按时间先后**（先日期、再当天具体时刻）> 同一时间再按轻重缓急 > 已完成沉底。
+   首页列表 / 日历当天明细 / 筛选结果 / 收件箱共用一个函数，口径永远一致。 */
 function sortList(arr){
-  const q=t=>(t.imp&&t.urg?0:(t.imp?1:(t.urg?2:3)));
+  const q=t=>(t.imp&&t.urg?0:(t.imp?1:(t.urg?2:3)));              /* 轻重缓急：马上做 ①②③④ */
+  /* 时间先后 = 日期 + 具体时刻；没填日期的自然排在最后（用 9999 兜底） */
+  const tk=t=>String(t.due||'9999-99-99')+' '+(t.time||'99:99');
   return [...arr].sort((a,b)=>{
-    if(a.pinned!==b.pinned) return a.pinned?-1:1; // ① 置顶最优先（哪怕它已完成）
-    if(a.done!==b.done) return a.done?1:-1;      // ⑤ 已完成沉到最下方，但仍显示
-    const od=(overdue(b)?1:0)-(overdue(a)?1:0);  // ② 逾期组整体提前
-    if(od) return od;
-    if(q(a)!==q(b)) return q(a)-q(b);            // ③ 组内（含逾期组）再按象限 ①②③④
-    return String(a.due||'9999').localeCompare(String(b.due||'9999')); // ④ 同象限按日期
+    if(a.pinned!==b.pinned) return a.pinned?-1:1;   // ① 置顶最优先（哪怕它已完成）
+    if(a.done!==b.done) return a.done?1:-1;         // ⑤ 已完成沉到最下方，但仍显示
+    const ao=overdue(a), bo=overdue(b);
+    if(ao!==bo) return ao?-1:1;                     // ② 逾期组整体提前
+    if(ao) return q(a)-q(b);                        // ③ 多条逾期之间只看轻重缓急
+    const tk2=tk(a).localeCompare(tk(b));           // ④ 其余按时间先后排
+    if(tk2) return tk2;
+    return q(a)-q(b);                               // 同一时间 → 再按轻重缓急
   });
 }
 /* 某天的完成 / 未完成统计（日历格实时读它，随勾选变化）—— M1 按真实日期 key */
@@ -969,10 +1239,243 @@ function dayOverdue(key){
   return key<TODAY && todos.some(t=>!t.deleted&&!t.inbox&&t.domain===S.domain&&t.due===key&&!t.done);
 }
 
+/* ============ 搜索与筛选 FR-406（V0.4）============
+   ① 只做过滤，**不改排序**（规则 1），纯内存算，不落库
+   ② 搜标题 + 备注（备注是原话，很多条目就靠它找回来）；标题命中的排前面
+   ③ 清空一步还原，Esc 也行 */
+/* 三个过滤函数都接受一个「条件包 f」，不传就用首页那套（S.q/…）。
+   日历页的筛选是**另一套独立条件**（calF()），互不干扰 —— 首页开着搜索切到日历页，
+   日历页也不会跟着筛（用户明确要求两屏断开）。 */
+function hasFilter(f){ f=f||{q:S.q,fq:S.fq,fcat:S.fcat,fst:S.fst}; return !!(f.q||f.fq||f.fcat||f.fst); }
+/* 筛选小药丸的统一长相（首页与日历弹窗**共用**，保证两屏一致）：
+   选中 = 该颜色实底 + 白字；未选中 = 白底 + 该颜色的字和边。
+   细描边在手机上根本看不清，所以改成"底色翻转"这种一眼能分辨的对比 */
+function chipStyle(on,color){
+  const c=color||'var(--brand)';
+  return `background:${on?c:'#fff'};color:${on?'#fff':c};border:1.5px solid ${c}`;
+}
+function matchFilter(t,f){
+  f=f||{q:S.q,fq:S.fq,fcat:S.fcat,fst:S.fst};
+  if(f.fq && quadKey(t.imp,t.urg)!==f.fq) return false;
+  if(f.fcat && (t.cat||'')!==f.fcat) return false;
+  if(f.fst==='undone'   &&  t.done)  return false;
+  if(f.fst==='done'     && !t.done)  return false;
+  if(f.fst==='overdue'  && !overdue(t)) return false;
+  const q=(f.q||'').trim().toLowerCase();
+  if(!q) return true;
+  return (String(t.title||'').toLowerCase().indexOf(q)>=0)
+      || (String(t.remark||'').toLowerCase().indexOf(q)>=0);
+}
+function applyFilter(list,f){
+  const r=sortList(list.filter(t=>matchFilter(t,f)));
+  const q=((f&&f.q)||(f==null?S.q:'')||'').trim().toLowerCase();
+  if(!q) return r;
+  /* 标题命中排前面（Array.sort 稳定，组内顺序不变） */
+  const hit=t=>String(t.title||'').toLowerCase().indexOf(q)>=0?0:1;
+  return [...r].sort((a,b)=>hit(a)-hit(b));
+}
+function clearFilter(){ S.q=''; S.fq=''; S.fcat=''; S.fst=''; }
+/* 只重画列表那一块 —— 输入框不重建，光标和焦点都不丢 */
+function refreshNoteList(){
+  const w=document.getElementById('listwrap');
+  if(w) w.innerHTML=noteListHTML();
+  const c=document.getElementById('qcount');
+  if(c) c.textContent=hasFilter()?'已筛选':'';
+}
+/* ============ 日历页的筛选（FR-406 第二屏版本 · 弹窗形态）============
+   ① 入口是**一个按钮**，点开才是弹窗 —— 不跟月历抢首屏空间
+   ② 条件是**独立的**（calQ/calFq/calFcat/calFst），跟首页搜索彻底断开
+   ③ 范围：本月 = 当前翻到的那个月；全部 = 这个域所有条目（含没定日期的）
+   ④ 结果列在弹窗下方，点条目照样进详情 */
+function calF(){ return {q:S.calQ, fq:S.calFq, fcat:S.calFcat, fst:S.calFst}; }
+function calPool(){
+  let pool = todos.filter(t=>!t.inbox && !t.deleted && t.domain===S.domain);
+  if(S.calScope!=='all'){
+    const ym=S.calY+'-'+String(S.calM+1).padStart(2,'0');
+    pool = pool.filter(t=>String(t.due||'').slice(0,7)===ym);
+  }
+  return pool;
+}
+function calResultHTML(){
+  const f=calF();
+  if(!hasFilter(f)) return '<div class="emptybox">先输入关键词，或点下面的条件筛一下</div>';
+  const list=applyFilter(calPool(),f);
+  const scope=(S.calScope==='all') ? '全部' : (S.calM+1)+' 月';
+  if(!list.length)
+    return '<div class="emptybox">这个范围内没有匹配的 · 换个词，或把范围切成「全部」</div>';
+  return `<div class="grouptitle" style="margin-top:8px">${scope} · 匹配 ${list.length} 条</div>`
+    + list.map(itemHTML).join('');
+}
+/* 弹窗里的筛选区：拆成「条件区」和「结果区」两块。
+   点条件 → 只重画条件区（选中态立刻变）；打字 → 只重画结果区（不丢焦点）。 */
+function calFilterHTML(){
+  const qd=[['undone','未完成'],['done','已完成'],['overdue','逾期']];
+  return `<div data-act="noop">
+    <div style="display:flex;gap:6px;align-items:center">
+      <input id="_cqs" class="tin" style="flex:1" value="${esc(S.calQ)}" placeholder="搜标题或备注…" autocomplete="off">
+      <button class="regen" style="background:#fff" data-act="calclear">清空</button>
+    </div>
+    <div id="calfilterbar">${calFilterBarHTML()}</div>
+    <div id="calmodalist" style="max-height:44vh;overflow:auto;margin-top:10px">${calResultHTML()}</div>
+  </div>`;
+}
+/* 条件区单独抽出来：点一下就重画它，选中/未选中立刻看得出来 */
+function calFilterBarHTML(){
+  const qd=[['undone','未完成'],['done','已完成'],['overdue','逾期']];
+  return `
+    <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
+      <span style="font-size:11px;color:var(--ink3)">范围</span>
+      ${[['month','只看本月'],['all','全部']].map(([k,n])=>`<button class="tagpill" data-act="calscope" data-v="${k}"
+        style="${chipStyle(S.calScope===k)}">${n}</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      ${QUADS.filter(x=>x[0]).map(([k,n,c])=>`<button class="tagpill" data-act="calfq" data-v="${k}"
+        style="${chipStyle(S.calFq===k,c)}">${n}</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      ${qd.map(([k,n])=>`<button class="tagpill" data-act="calfst" data-v="${k}" style="${chipStyle(S.calFst===k)}">${n}</button>`).join('')}
+      ${(CATS[S.domain]||[]).map(c=>`<button class="tagpill" data-act="calfcat" data-v="${esc(c)}"
+        style="${chipStyle(S.calFcat===c)}">${catChip(c)}${esc(c)}</button>`).join('')}
+    </div>`;
+}
+function openCalFilter(){
+  modal('筛选', calFilterHTML());
+  const el=document.getElementById('_cqs');
+  if(el) try{ el.focus({preventScroll:true}); }catch(e){ try{ el.focus(); }catch(e2){} }
+}
+/* 只重画结果区：输入框不重建，光标和焦点都不丢 */
+function refreshCalList(){
+  const w=document.getElementById('calmodalist');
+  if(w) w.innerHTML=calResultHTML();
+}
+/* 重画条件区：选中态**当场**就变，不用退出弹窗再进来才看得见 */
+function refreshCalBar(){
+  const b=document.getElementById('calfilterbar');
+  if(b) b.innerHTML=calFilterBarHTML();
+  refreshCalList();
+}
+function calFilterBtnHTML(){
+  const n=hasFilter(calF()) ? applyFilter(calPool(),calF()).length : 0;
+  const on=hasFilter(calF());
+  const txt=on ? `筛选中 · ${S.calScope==='all'?'全部':'本月'} ${n} 条` : '筛选 · 按月 / 全部找这件事';
+  return `<button class="row" style="padding:10px 12px;${on?'border-color:var(--brand)':''}" data-act="calfilter">
+    <span style="font-size:16px;flex:none">🔍</span>
+    <span style="flex:1;font-size:14px;color:var(--ink);text-align:left">${txt}</span>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>`;
+}
+/* 首页池子 = 逾期 + 今天（跟 noteListHTML 取的是同一批），收起态的「筛选中 · N 条」用它算数 */
+function homePool(){
+  return listTodos().filter(t=>overdue(t)||t.due===TODAY||
+    (t.done&&t.doneAt&&String(t.doneAt).startsWith(TODAY)));
+}
+function searchHTML(){
+  /* 收起态 = 一行小入口。**收起不等于清空**：条件还在，按钮上写明「筛选中 · N 条」
+     （跟日历页那个筛选按钮一个意思）—— 退出筛选是「点框外」，不是「点清空」 */
+  if(!S.qOpen){
+    const on=hasFilter(), n=on?applyFilter(homePool()).length:0;
+    return `<button class="row" style="padding:9px 12px;gap:8px${on?';border-color:var(--brand)':''}" data-act="qtoggle">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${on?'var(--brand)':'var(--ink3)'}" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <span style="flex:1;text-align:left;font-size:13px;color:${on?'var(--brand)':'var(--ink3)'}">${on?`筛选中 · ${n} 条`:'搜标题 / 备注 · 按象限、分类、状态筛'}</span>
+      ${on?'<span style="font-size:11px;color:var(--brand);flex:none">展开</span>':''}
+    </button>`;
+  }
+  return `<div class="section ${S._panelIn?'panelin':''}" style="gap:8px;border-color:var(--brand)" data-act="noop">
+    <div style="display:flex;gap:6px;align-items:center">
+      <input id="_qs" class="tin" style="flex:1" value="${esc(S.q)}" placeholder="搜标题或备注…" autocomplete="off">
+      <button class="regen" style="background:#fff" data-act="qclear">清空</button>
+    </div>
+    <div id="searchbar">${searchBarHTML()}</div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink3)">
+      <span id="qcount">${hasFilter()?'已筛选':''}</span><span>再点一次同一个条件 = 取消 · 点框外收起</span>
+    </div>
+  </div>`;
+}
+/* 条件区单独抽出来：点一下只重画它，选中态当场就变，输入框不重建（焦点和光标都不丢） */
+function searchBarHTML(){
+  const qd=[['undone','未完成'],['done','已完成'],['overdue','逾期']];
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${QUADS.filter(x=>x[0]).map(([k,n,c])=>`<button class="tagpill" data-act="fq" data-v="${k}"
+        style="${chipStyle(S.fq===k,c)}">${n}</button>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${qd.map(([k,n])=>`<button class="tagpill" data-act="fst" data-v="${k}"
+        style="${chipStyle(S.fst===k)}">${n}</button>`).join('')}
+      ${(CATS[S.domain]||[]).map(c=>`<button class="tagpill" data-act="fcat" data-v="${esc(c)}"
+        style="${chipStyle(S.fcat===c)}">${catChip(c)}${esc(c)}</button>`).join('')}
+    </div>`;
+}
+/* 只重画条件区 + 列表（同日历的 refreshCalBar）：不清空、不收起、不重建输入框 */
+function refreshSearchBar(){
+  const b=document.getElementById('searchbar'); if(b) b.innerHTML=searchBarHTML();
+  refreshNoteList();
+}
+
+/* ============ 在线更新 FR-401（V0.4 · 版本源 = GitHub Releases）============
+   ① 更新源地址写死在 REPO 里；凡是查不到版本的情况（404 / 断网 / 超时）一律**静默**（规则 13）
+   ② APK 资源走原生下载 + 系统安装向导；网页版没有版本概念，只给一句说明
+   ③ 下载链接只认 GitHub 自家域名，防止哪天仓库被换成别的东西 */
+const UPD={
+  REPO:'AzazelKumaki/todonotes',
+  API:'https://api.github.com/repos/AzazelKumaki/todonotes/releases/latest',
+  PAGE:'https://github.com/AzazelKumaki/todonotes/releases/latest',
+  KEY:'todo.upd.v1',
+  st:{latest:'', notes:'', apk:'', checkedAt:'', today:''},
+  load(){ try{ Object.assign(UPD.st, JSON.parse(localStorage.getItem(UPD.KEY)||'{}')||{}); }catch(e){} },
+  save(){ try{ localStorage.setItem(UPD.KEY, JSON.stringify(UPD.st)); }catch(e){} },
+  ver(s){ const m=String(s||'').match(/(\d+)\.(\d+)/); return m?(m[1]+'.'+m[2]):''; },
+  cur(){
+    let v='';
+    try{ if(typeof AppBridge!=='undefined' && AppBridge.getVersionName) v=AppBridge.getVersionName(); }catch(e){}
+    return UPD.ver(v)||UPD.ver(APPVER);
+  },
+  cmp(a,b){
+    const A=String(a||'').split('.').map(Number), B=String(b||'').split('.').map(Number);
+    for(let i=0;i<2;i++){ const d=(A[i]||0)-(B[i]||0); if(d) return d; }
+    return 0;
+  },
+  okUrl(u){ return /^https:\/\/(github\.com|objects\.githubusercontent\.com|release\.github\.com)\//i.test(String(u||'')); },
+  isApp(){ let a=false; try{ a=!!(typeof AppBridge!=='undefined'&&AppBridge.isApp&&AppBridge.isApp()); }catch(e){} return a; },
+  async check(){
+    UPD.load();
+    try{
+      const r=await withTimeout(fetch(UPD.API,{headers:{'Accept':'application/vnd.github+json'}}),5000,'请求超时');
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const j=await r.json();
+      const tag=UPD.ver(String(j.tag_name||'').replace(/^[vV]/,''));
+      const asset=(j.assets||[]).find(a=>/\.apk$/i.test(a.name||''));
+      UPD.st.latest=tag;
+      UPD.st.notes=String(j.body||'').trim();
+      UPD.st.apk=(asset&&UPD.okUrl(asset.browser_download_url))?asset.browser_download_url:'';
+      UPD.st.checkedAt=nowStamp(); UPD.save();
+      if(!tag) return 'none';
+      return UPD.cmp(tag,UPD.cur())>0 ? 'new' : 'latest';
+    }catch(e){
+      UPD.st.checkedAt=nowStamp(); UPD.save();
+      UPD.st.err=String(e&&e.message||e);
+      return 'none';       /* 没 VERSION.json / 404 / 断网 —— 一律静默，不打扰 */
+    }
+  },
+  /* 把下载交给原生：APK 是二进制，塞不进 WebView 的字符串通道（会坏包） */
+  install(){
+    if(!UPD.isApp()){ locationVerbose(); return; }
+    if(!UPD.okUrl(UPD.st.apk)){ modal('下载不了','这个版本的安装包地址不在允许的域名里，去发布页手动下载吧。'); return; }
+    let ok=false;
+    try{ if(typeof AppBridge!=='undefined'&&AppBridge.installApk){ AppBridge.installApk(UPD.st.apk); ok=true; } }catch(e){}
+    if(!ok) modal('手机端才能安装','电脑上打开的是网页版，直接到发布页下载 APK 拷到手机里装就行。');
+  },
+  openPage(){
+    try{ if(UPD.isApp() && typeof AppBridge!=='undefined' && AppBridge.openUrl){ AppBridge.openUrl(UPD.PAGE); return; } }catch(e){}
+    try{ window.open(UPD.PAGE,'_blank'); }catch(e){}
+  }
+};
+function locationVerbose(){ modal('网页版没有版本概念','网页就是 `index.html` 本身 —— 换新版只要拿新的这个文件覆盖旧的就行，不存在"下载安装"。' ); }
+
+
 /* ============ 渲染入口 ============ */
 /* 上一次渲染时「页面是谁」——用来判断该不该保住滚动位置。
    之前只靠调用方传 keep，很多地方没传，于是点一下任何选项都被弹回顶部（V0.2 修） */
 let _lastPosKey='';
+let _lastMain=null;   /* 上一次渲染的「页面坐标」—— 用来判断页面切换方向（动效用） */
 function posKey(){
   return [S.tab, S.sub||'', S.detailId||'', S.day||'', S.inboxFrom||''].join('|');
 }
@@ -983,11 +1486,18 @@ function render(keep){
   const _top=_v0?_v0.scrollTop:0;
   const _key=posKey();
   const _same=(_key===_lastPosKey);
+  /* 药丸换色要用到的「旧品牌色」：**必须在换主题之前读**，body class 一换 --brand 就变了。
+     （getComputedStyle 在测试 stub 里没有，所以整个包在 try 里） */
+  try{ _prevBrand=(getComputedStyle(document.body).getPropertyValue('--brand')||'').trim(); }catch(e){}
   // 第③栏「我的」= 中性主题（设置与域无关）；收件箱沿用进入时的域
   // ⚠️ 只换主题类，不能整体覆盖 className —— 否则会把启动时认领的 app-mode（APK 真机全屏）冲掉
   document.body.classList.remove('theme-work','theme-life','theme-neutral');
   document.body.classList.add('theme-' + (S.tab==='me' ? 'neutral'
     : (S.sub==='inbox' ? S.inboxFrom : S.domain)));
+  /* 配色（FR-402）：第③栏保持中性灰，其余按当前域（收件箱沿用进入时的域）套用用户选的配色 */
+  if(S.tab==='me') clearThemeVars();
+  else applyTheme(S.sub==='inbox' ? S.inboxFrom : S.domain);
+  try{ _curBrand=(getComputedStyle(document.body).getPropertyValue('--brand')||'').trim(); }catch(e){}
   const v=document.getElementById('view'), tb=document.getElementById('tabbar');
   document.getElementById('phone').querySelectorAll('.fab').forEach(e=>e.remove());
 
@@ -1005,6 +1515,28 @@ function render(keep){
     }
   }
   v.innerHTML = isSub ? subHTML() : mainHTML();
+  /* 页面切换进场动画（衔接动效 ②）：只看「页面坐标」变没变 —— tab / 二级页 / 域 / 聚焦。
+     勾选完成这类原地更新坐标没变，不播整屏动画（只播条目自己的 fx）。 */
+  const _main={tab:S.tab,sub:S.sub||'',detailId:S.detailId||'',day:S.day||'',
+    domain:S.domain,inboxFrom:S.inboxFrom||'',focused:!!S.focused};
+  if(_lastMain){
+    let _dir=null;
+    if(_main.sub!==_lastMain.sub || _main.detailId!==_lastMain.detailId || _main.day!==_lastMain.day){
+      _dir = (_main.sub && !_lastMain.sub) ? 'pagein-f'          /* 进二级页：从右滑入 */
+           : (!_main.sub && _lastMain.sub) ? 'pagein-b'          /* 返回：从左滑入 */
+           : 'pagein-u';                                          /* 二级页之间跳：上浮 */
+    }else if(_main.tab!==_lastMain.tab || _main.domain!==_lastMain.domain){
+      _dir='pagein-u';                                            /* 切 tab / 切域：上浮 */
+    }else if(_lastMain.focused && !_main.focused){
+      _dir='pagein-u';                                            /* 退出聚焦：轻浮一下，柔化面板收起 */
+    } /* 进入聚焦不播整屏动画 —— 交给面板自己的展开动画 */
+    if(_dir){
+      v.classList.remove('pagein-f','pagein-b','pagein-u');
+      void v.offsetWidth;              /* 强制回流：同一帧内先摘再戴，动画才会重播 */
+      v.classList.add(_dir);
+    }
+  }
+  _lastMain=_main;
   if(!isSub) fabHTML();
   /* 同一个页面内原地更新 → 保住滚动位置；换了页面（切 tab / 进出二级页 / 换条目）→ 回到顶部。
      显式传 keep=false 才会强制回顶（比如"新建分类"这类希望看到顶部的操作） */
@@ -1020,23 +1552,47 @@ function render(keep){
       try{const n=el.value.length; el.setSelectionRange(n,n);}catch(e){}
     }
   }
+  /* 动效标记只服务「这一次」渲染：class 已写进刚替换的 HTML 里，动画会自己播完 */
+  S._fx=null; S._panelIn=false;
   /* V0.3：任何一次界面刷新都意味着数据可能变了 —— 攒 1.2 秒后自动同步一次。
      云端落地引发的 render 不会来回触发（SYNC.applying 期间跳过） */
   try{ SYNC.schedule(); }catch(e){}
 }
 
+/* 底部三 Tab：选中态是一块**会滑过去的药丸**（.pill），不是各自瞬间换底色。
+   render() 会整个重建底栏，所以不能靠 transition —— 得把「上一格是第几个」写进 --f，
+   用 animation 从旧位置滑到新位置（跟页面切换同一套路：只做「进」）。 */
+let _lastTabIdx=null;
+let _prevBrand='', _curBrand='';   /* 切换前后的品牌色：药丸换色动画的起点 / 终点 */
+/* 一块药丸 = 移动（mv，--f 旧格 → --i 新格）+ 换色（--fc 旧色 → --brand 新色）。
+   没移动但颜色变了（比如切域时底栏 Tab 的药丸原地换色）就只播换色（tint）。 */
+function pillHTML(cls,idx,last){
+  const from=(last!=null&&last!==idx)?last:null;
+  const tint=(from==null&&_prevBrand&&_curBrand&&_prevBrand!==_curBrand);
+  const fc=_prevBrand?`;--fc:${_prevBrand}`:'';
+  return `<span class="pill ${cls} ${from!=null?'mv':''}${tint?' tint':''}" style="--i:${idx}${from!=null?';--f:'+from:''}${fc}"></span>`;
+}
 function tabbarHTML(){
+  const idx=S.tab==='note'?0:(S.tab==='calendar'?1:2);
   const t=(id,label,icon)=>`<button class="tab ${S.tab===id?'on':''}" data-act="tab" data-v="${id}">${icon}<span>${label}</span></button>`;
+  const pill=pillHTML('pill-tab',idx,_lastTabIdx);
+  _lastTabIdx=idx;
   return `<div class="tabcapsule">
+    ${pill}
     ${t('note','记一笔','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>')}
     ${t('calendar','日历','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>')}
     ${t('me','我的','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>')}
   </div>`;
 }
 
+let _lastDomIdx=null;
 function switchHTML(){
+  const idx=S.domain==='work'?0:1;
+  const pill=pillHTML('pill-sw',idx,_lastDomIdx);   /* 必须在下面更新 _lastDomIdx **之前**取旧值 */
+  _lastDomIdx=idx;
   const half=(k,label,icon)=>`<button class="sw-half ${S.domain===k?'on':''}" data-act="domain" data-v="${k}">${icon}<span>${label}</span></button>`;
   return `<div class="switch">
+    ${pill}
     ${half('work','工作','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2"/></svg>')}
     ${half('life','生活','<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>')}
   </div>`;
@@ -1065,7 +1621,7 @@ function subHTML(){
     case 'cloud':  return cloudHTML();
     case 'day':    return dayHTML();
     case 'trash':  return trashHTML();
-    case 'bg':     return bgHTML();
+    case 'theme':  return themeHTML();
     case 'bak':    return bakHTML();
     case 'backup': return backupHTML();
   }
@@ -1082,7 +1638,7 @@ function trashHTML(){
       ${items.length?items.map(t=>`<div class="row" style="cursor:default">
         <span class="qbar" style="background:${qcolor(t)};height:32px"></span>
         <span style="flex:1">
-          <span style="display:block;font-size:15px;color:var(--ink)">${esc(t.title||t.remark.slice(0,12))}</span>
+          <span style="display:block;font-size:15px;color:var(--ink)">${esc(titleOf(t))}</span>
           <span style="display:block;font-size:11px;color:var(--ink3);margin-top:3px">${t.domain?(t.domain==='work'?'工作':'生活'):'未归类'}${t.cat?' · '+t.cat:''} · 30 天内可恢复</span>
         </span>
         <button class="regen" data-act="restore" data-v="${t.id}">恢复</button>
@@ -1090,33 +1646,47 @@ function trashHTML(){
     </div>`;
 }
 
-/* ============ 自定义背景图 ============ */
-function bgHTML(){
+/* ============ 换配色（FR-402/403 · V0.4 替换原「自定义背景图」）============ */
+function themeHTML(){
   const backRow=`<div class="backrow"><button class="backbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button></div>`;
-  const card=(d,label,ph,tip)=>`<div class="section" style="gap:8px">
-    <div class="label">${label}</div>
-    <div style="height:120px;border-radius:12px;background:${ph};display:flex;align-items:flex-end;justify-content:flex-end;padding:8px">
-      <button class="regen" style="background:#fff" data-act="pickbg" data-v="${d}">更换图片</button>
-    </div>
-    <div class="hint">${tip}</div>
-  </div>`;
+  const card=(dm,label,defK)=>{
+    const cfg=THEME_CFG[dm]||{k:defK}, p=themeOf(dm);
+    const chips=THEMES.map(t=>`<button data-act="settheme" data-v="${t.k}" data-d="${dm}"
+        style="width:100%;border:2px solid ${cfg.k===t.k&&!cfg.custom?t.brand:'transparent'};background:${t.bg};border-radius:12px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:5px">
+        <span style="width:26px;height:26px;border-radius:13px;background:linear-gradient(135deg,${t.brand2},${t.brand})"></span>
+        <span style="font-size:11px;color:var(--ink2)">${t.n}</span>
+      </button>`).join('');
+    return `<div class="section" style="gap:10px">
+      <div class="label">${label}<span style="float:right;color:var(--ink3)">当前 ${cfg.custom?'自定义':(THEMES.find(x=>x.k===cfg.k)||{n:'默认'}).n}</span></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">${chips}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="color" id="cp-${dm}" value="${cfg.custom?(cfg.brand||p.brand):p.brand}"
+          style="width:44px;height:36px;padding:0;border:2px solid var(--soft);border-radius:10px;background:none">
+        <button class="regen" style="flex:1" data-act="customtheme" data-d="${dm}">用这个颜色</button>
+        <button class="regen" style="background:#fff" data-act="resettheme" data-v="${dm}">还原</button>
+      </div>
+    </div>`;
+  };
   return `${backRow}
-    <div class="pagetitle">自定义背景图</div>
+    <div class="pagetitle">换配色</div>
     <div class="stack">
-      ${card('work','工作域背景','linear-gradient(160deg,#DBEAFE,#93C5FD)','会叠一层浅色遮罩，保证白底卡片和文字都读得清')}
-      ${card('life','生活域背景','linear-gradient(160deg,#FFEDD5,#FDBA74)','图片只存本机，不上传云端 —— 不占同步额度、不耗流量')}
-      <div class="hint">两个域各一张，切域时背景跟着换，是「一眼分辨工作 / 生活」最强的一招</div>
+      ${card('work','工作域','blue')}
+      ${card('life','生活域','coral')}
+      <div class="hint">两个域各一套，切域时整站配色跟着换 —— 这是「一眼分辨工作 / 生活」最强的一招。
+      不喜欢预设就用下面的取色器挑一个，剩下的配色会自动配好。<br>
+      配色只存在本机，<b>不进备份、导出和云同步</b>。</div>
     </div>`;
 }
 
 /* ============ 新建分类（自定义名称 / 颜色 / 符号） ============ */
 function renderNewCat(){
   const p=document.getElementById('phone');
+  const fresh=!p.querySelector('.modal-mask');   /* 弹窗已经在屏上（换颜色/符号重建）→ 不重播进场动画 */
   p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
   const nc=S._newcat; if(!nc) return;
   const isEdit=!!nc.old;
-  const d=document.createElement('div'); d.className='modal-mask'; d.dataset.act='closemodal';
-  d.innerHTML=`<div class="modal" data-act="noop">
+  const d=document.createElement('div'); d.className='modal-mask'+(fresh?'':' reinit'); d.dataset.act='closemodal';
+  d.innerHTML=`<div class="modal ${fresh?'':'reinit'}" data-act="noop">
     <div class="modal-t">${isEdit?'编辑分类':'新建'+(nc.domain==='work'?'工作':'生活')+'分类'}</div>
     <div style="display:flex;align-items:center;gap:10px">
       <span class="cat-chip" style="background:${hexA(nc.color,.14)};box-shadow:inset 3px 0 0 ${nc.color}">${nc.symbol}</span>
@@ -1166,11 +1736,12 @@ function openRecur(){
   /* 重建弹窗前记住滚到哪儿了 —— 不然每选一个选项，弹窗内容就跳回顶部 */
   const _old=p.querySelector('.modal');
   const _keepTop=_old?_old.scrollTop:0;
+  const fresh=!p.querySelector('.modal-mask');   /* 换重复方式等原地重建 → 不重播进场动画 */
   p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
   if(!S._recur) S._recur={title:'',mode:'week',wd:1,md:1,every:3,time:'',imp:false,urg:false,cat:null};
   const r=S._recur, wdName=['一','二','三','四','五','六','日'];
-  const d=document.createElement('div'); d.className='modal-mask'; d.dataset.act='closemodal';
-  d.innerHTML=`<div class="modal" data-act="noop" style="max-height:660px;overflow:auto">
+  const d=document.createElement('div'); d.className='modal-mask'+(fresh?'':' reinit'); d.dataset.act='closemodal';
+  d.innerHTML=`<div class="modal ${fresh?'':'reinit'}" data-act="noop" style="max-height:660px;overflow:auto">
     <div class="modal-t">循环安排</div>
     <input class="tin" id="_rt" value="${esc(r.title)}" placeholder="比如「周会」">
     <div class="label">重复方式</div>
@@ -1243,9 +1814,10 @@ function genRecur(){
 /* ============ 弹窗 ============ */
 function modal(title,body){
   const p=document.getElementById('phone');
+  const fresh=!p.querySelector('.modal-mask');
   p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
-  const d=document.createElement('div'); d.className='modal-mask'; d.dataset.act='closemodal';
-  d.innerHTML=`<div class="modal" data-act="noop">
+  const d=document.createElement('div'); d.className='modal-mask'+(fresh?'':' reinit'); d.dataset.act='closemodal';
+  d.innerHTML=`<div class="modal ${fresh?'':'reinit'}" data-act="noop">
     <div class="modal-t">${title}</div>
     <div class="modal-b">${body}</div>
     <button class="btn" data-act="closemodal">知道了</button></div>`;
@@ -1254,9 +1826,6 @@ function modal(title,body){
 
 /* ============ ① 记一笔 ============ */
 function noteHTML(){
-  const od = sortList(listTodos().filter(overdue));
-  /* 今天完成的（哪怕原定日期更早）也要留在首页，沉在底部 */
-  const today = sortList(listTodos().filter(t=>t.due===TODAY || (t.done&&t.doneAt&&t.doneAt.startsWith(TODAY))));
   return `
   <div class="stack">
     <span class="screentag">${S.focused?'A2 · 记一笔（输入态 · 已聚焦）':'A1 · 记一笔（默认首屏 · 未聚焦）'}</span>
@@ -1267,16 +1836,27 @@ function noteHTML(){
       </button>
     </div>
     ${S.focused ? parseHTML() : ''}
-    <div class="hint">聚焦时<b>五项字段</b>就在下面（重要 + 紧急已合并成「轻重缓急」）：可直接点【保存】（四项没填全就进收件箱）· 点 ✦ 解析后再保存 · 点【再改改】或框外任意处退出</div>
+    <div class="hint">聚焦时<b>五项字段</b>就在下面（重要 + 紧急已合并成「轻重缓急」）：可直接点【保存】（四项没填全就进收件箱）· 点 ✦ 解析后再保存 · 点【返回】或框外任意处退出</div>
     <div class="hint">点条目 = 进详情 · 点左边圆圈 = 直接标为完成，不进详情</div>
+    <div id="searchwrap">${searchHTML()}</div>
+    <div id="listwrap">${noteListHTML()}</div>
+  </div>`;
+}
+/* 列表区单独抽出来：搜索时只重画这一块，输入框不重建就不会丢焦点 */
+function noteListHTML(){
+  const od = applyFilter(listTodos().filter(overdue));
+  /* 今天完成的（哪怕原定日期更早）也要留在首页，沉在底部 */
+  const today = applyFilter(listTodos().filter(t=>t.due===TODAY || (t.done&&t.doneAt&&t.doneAt.startsWith(TODAY))));
+  if(hasFilter() && !od.length && !today.length)
+    return '<div class="emptybox">没有匹配的 · 点【清空】看看全部</div>';
+  return `
     ${od.length?`<div style="display:flex;gap:6px;align-items:center;color:#DC2626;font-size:13px;font-weight:600;padding:6px 2px 0">
        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
        逾期 ${od.length} 件</div>`:''}
     ${od.map(itemHTML).join('')}
     <div class="grouptitle" style="margin-top:6px">今天</div>
     ${today.length?today.map(itemHTML).join(''):'<div class="emptybox">今天没有安排</div>'}
-    <div class="hint">更远日期的事项去「日历」里看 · 首屏只放逾期和今天，<b>放不下可以下滑</b>（不再折叠）</div>
-  </div>`;
+    <div class="hint" style="margin-bottom:64px">更远日期的事项去「日历」里看 · 首屏只放逾期和今天，<b>放不下可以下滑</b>（不再折叠）</div>`;
 }
 
 function parseHTML(){
@@ -1288,7 +1868,7 @@ function parseHTML(){
     <span class="fval" style="${v?'':'color:var(--ink4)'}">${esc(v||'—')}${p.manual&&p.manual[key]?'<i class="mtag">手填</i>':''}</span>
     <span class="fact">${v?'▾':'＋'}</span></button>`;
   /* data-act="noop" 让面板内部的点击不会误判成"点框外"而退出聚焦 */
-  return `<div class="section" style="border-color:var(--brand)" data-act="noop">
+  return `<div class="section ${S._panelIn?'panelin':''}" style="border-color:var(--brand)" data-act="noop">
     <div class="hint" style="padding:0">${has
       ? ('✦ 解析好了 · 归属已按「'+(S.domain==='work'?'工作':'生活')+'」填好，点任意一行都能改')
       : '点任意一行手工填 · 或直接【保存】让它进收件箱'}</div>
@@ -1299,17 +1879,19 @@ function parseHTML(){
     ${f('cat','分类',p.cat)}
     <div class="btnrow">
       <button class="btn" data-act="save">保存</button>
-      <button class="btn ghost" data-act="cancel">再改改</button>
+      <button class="btn ghost" data-act="cancel">返回</button>
     </div>
   </div>`;
 }
 
 function itemHTML(t){
-  return `<button class="item ${t.done?'done':''}" data-act="open" data-v="${t.id}">
+  /* 刚被勾选 / 取消完成的那一条带 fx 类，播放圆圈 pop + 整条落定的动效 */
+  const fx=(S._fx && S._fx.id===t.id)?(S._fx.done?'fx-on':'fx-off'):'';
+  return `<button class="item ${t.done?'done':''} ${fx}" data-act="open" data-v="${t.id}">
     <span class="circle ${t.done?'done':''}" data-act="toggle" data-v="${t.id}"></span>
     <span class="qbar" style="background:${t.done?'var(--q4)':qcolor(t)}"></span>
     <span class="itxt">
-      <span class="ititle">${t.pinned?'📌 ':''}${esc(t.title||t.remark.slice(0,12))}</span>
+      <span class="ititle">${t.pinned?'📌 ':''}${esc(titleOf(t))}</span>
       <span class="isub">${esc(fmtSub(t))}</span>
     </span>
   </button>`;
@@ -1333,9 +1915,10 @@ function inboxHTML(){
         <span>有 ${undone} 条待整理 · 点这里一键重新解析</span>
       </div>
       ${items.length?items.map(itemHTML).join(''):'<div class="emptybox">收件箱是空的</div>'}
-      <div class="hint">点左边圆圈可直接标完成（<b>计入今天的完成</b>）· 点条目进详情，<b>标题 / 完成时间 / 轻重缓急 / 归属 四项填全</b>后点【保存】即归入该域（分类选填）</div>
+      <div class="hint" style="margin-bottom:64px">点左边圆圈可直接标完成（<b>计入今天的完成</b>）· 点条目进详情，<b>标题 / 完成时间 / 轻重缓急 / 归属 四项填全</b>后点【保存】即归入该域（分类选填）</div>
     </div>`;
 }
+
 
 /* ============ ② 日历 B1 ============ */
 function calendarHTML(){
@@ -1371,12 +1954,12 @@ function calendarHTML(){
         <button class="btn ghost" data-act="calm" data-v="1" style="flex:none;padding:4px 14px">›</button>
       </span>
     </div>
+    ${calFilterBtnHTML()}
     <button class="row" data-act="recur" style="padding:10px 12px">
       <span style="font-size:16px;flex:none">🔁</span>
       <span style="flex:1;font-size:14px;color:var(--ink)">循环安排 · 周会 / 每月缴费 / 每隔几天</span>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
     ${grid}
-    <div class="hint">色条：红=马上做 · 蓝=计划做 · 橙=快速处理 · 灰=有空再说</div>
     <div class="hint">标记：<b>●</b> 已完成 / <b>○</b> 未完成 · 红下划线 = 当天有逾期 · 灰底 = 这天有总结</div>
     <div class="hint">点某一天 → 展开当天明细；点条目 = 进详情，点圆圈 = 标完成</div>
   </div>`;
@@ -1447,7 +2030,7 @@ function detailHTML(){
     </div>
     <div class="stack">
       <button class="field" data-act="dfield" data-v="title" style="padding:12px">
-        <span class="fval" style="font-size:16px;font-weight:600">${esc(t.title||t.remark.slice(0,12))}${t.title?'':'<span style="font-size:11px;color:var(--ink4)"> · 待填</span>'}</span>
+        <span class="fval" style="font-size:16px;font-weight:600">${esc(titleOf(t))}${t.title?'':'<span style="font-size:11px;color:var(--ink4)"> · 待填</span>'}</span>
         <span class="fact">▾</span></button>
       ${!t.title&&t.remark
         ? `<div class="hint" style="padding:0 0 4px;background:#FEF3C7;color:#92400E">上面这行现在显示的是<b>备注的前 12 个字</b>，标题其实还是空的。点它改个正式标题；不改也行，保存时会自动拿它当标题。</div>`:''}
@@ -1459,7 +2042,7 @@ function detailHTML(){
       ${f('domain','归属',t.domain?(t.domain==='work'?'工作':'生活'):'')}
       ${f('cat','分类',t.cat)}
       <div class="field" style="flex-direction:column;align-items:stretch;gap:6px">
-        <span class="fname">备注 · 你的原始输入（不改写）</span>
+        <span class="fname" style="width:auto">备注 · 原始输入 · 不改写</span>
         <span style="font-size:13px;line-height:19px;color:var(--ink)">${esc(t.remark)||'（空）'}</span>
       </div>
       <div class="btnrow">
@@ -1574,10 +2157,11 @@ function meHTML(){
       row(ic('<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>'),'数据与备份 · 导出 / 导入 / 自动备份','exportask')+
       row(ic('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'),'回收站 · 30 天内可恢复','trash'))}
     ${g('偏好',
-      row(ic('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8.5 9a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/><path d="M21 15l-5-5L5 21"/>'),'自定义背景图 · 工作 / 生活各一张','bg')+
+      row(ic('<path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 2v20M2 12h20" opacity=".35"/><circle cx="9" cy="9" r="1.6"/><circle cx="15" cy="9" r="1.6"/><circle cx="9" cy="15" r="1.6"/>'),'换配色 · 工作 / 生活各一套','theme')+
       row(ic('<path d="M4 6h16M4 12h16M4 18h10"/>'),'分类管理 · 工作 4 / 生活 4','cats'))}
     ${g('其他',
-      row(ic('<path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/>'),'检查更新 · 当前 '+APPVER,'update'))}
+      row(ic('<path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/>'),'检查更新 · 当前 '+UPD.cur()
+        + (UPD.st.checkedAt?' · 上次 '+esc(UPD.st.checkedAt.slice(5,16)):''),'update'))}
     <div class="hint">本地自动备份是<b>自动执行</b>的（每次打开写一份，保留 30 天），不用你点；
       已经攒下 <b>${BAK.list().length}</b> 份，最近一份 <b>${esc(BAK.last()||'—')}</b>，在「数据与备份」里能查看和导出。<br>
       AI 状态：${AI.ready()?(AI.cfg.ok?'<b style="color:#059669">已接上</b> · '+esc(AI.cfg.provider)+' / '+esc(AI.cfg.model):'已填 Key，还没通过测试'+(AI.cfg.msg?'（'+esc(AI.cfg.msg)+'）':'')):'<b>未配置</b> · 现在是本机规则解析，不影响使用'}</div>
@@ -1791,6 +2375,18 @@ function cloudHTML(){
         ${c.on?`<button class="btn ghost" style="margin-top:8px;color:#DC2626;border-color:#FECACA;background:#FEF2F2" data-act="cdisc">断开云同步</button>`:''}
         <div class="hint" style="padding:0">口令只在你这台机器上算成一个 ID 再发出去，<b>口令本身永远不上传</b>；
           密钥落盘是混淆的，导出的数据文件<b>不含它</b>。</div>
+        <button class="row" style="padding:10px 0;border:none;background:none;gap:10px" data-act="cenctoggle">
+          <span class="radio" style="position:static;width:20px;height:20px;flex:none;
+            border:2px solid ${CLOUD.encOn(c)?'var(--brand)':'var(--line)'};background:${CLOUD.encOn(c)?'var(--brand)':'transparent'};
+            border-radius:10px;display:flex;align-items:center;justify-content:center">
+            ${CLOUD.encOn(c)?'<span style="width:8px;height:8px;border-radius:4px;background:#fff"></span>':''}</span>
+          <span style="flex:1;text-align:left;font-size:14px">上传前加密<span style="font-size:11px;color:var(--ink3)">（AES-GCM · 默认开）</span></span>
+        </button>
+        ${CLOUD.encOn(c)
+          ? (c.pwd
+            ? '<div class="hint" style="padding:0">用你的同步口令在这台机器上派生密钥，<b>云端存的是密文</b>；口令和密钥都不上传、不进备份。</div>'
+            : '<div class="hint" style="padding:0;color:#B45309">已勾选，但<b>还没填同步口令</b> —— 口令是派生密钥的原料，填上之后才真的开始加密。</div>')
+          : '<div class="hint" style="padding:0">关掉了 —— 云端会存明文。想加密随时能再打开。</div>'}
       </div>
 
       <div class="grouptitle">当前状态</div>
@@ -1985,7 +2581,10 @@ function doExport(){
   const jn=`待办清单-备份-${stamp}.json`, cn=`待办清单-${stamp}.csv`;
   const inApp = (typeof AppBridge!=='undefined' && !!AppBridge.isApp);
   const ver   = inApp ? 'V'+AppBridge.getVersionName() : APPVER;
-  downloadFile(jn, JSON.stringify(buildJSON(list,scope,day),null,2), 'application/json;charset=utf-8');
+  /* V0.4：导出范围选项已砍掉（只剩「全部数据」一种），这里别再传旧参数 ——
+     之前遗留的 buildJSON(list,scope,day) 里 scope/day 两个变量根本不存在，
+     一按【导出】就抛 ReferenceError，被吞掉后表现成「点了没反应」（2026-10-21 发版审查发现） */
+  downloadFile(jn, JSON.stringify(buildJSON(list),null,2), 'application/json;charset=utf-8');
   downloadFile(cn, buildCSV(list), 'text/csv;charset=utf-8');
   modal('已导出两份文件',
     `· <b>${jn}</b><br><span style="font-size:12px">完整备份 · 共 ${list.length} 条待办 + 分类 + 复盘，可被本应用还原</span><br><br>
@@ -2010,16 +2609,19 @@ function fabHTML(){
 }
 function toast(msg){
   const p=document.getElementById('phone');
+  p.querySelectorAll('.toast').forEach(t=>t.remove());   /* 连续提示别叠罗汉：新的顶掉旧的 */
   const d=document.createElement('div'); d.className='toast'; d.textContent=msg; p.appendChild(d);
-  setTimeout(()=>d.remove(),1800);
+  /* 滑入由 CSS 动画负责；退场先淡出下移，再从 DOM 里摘掉 */
+  setTimeout(()=>{ d.classList.add('bye'); setTimeout(()=>d.remove(),260); },1800);
 }
 
 /* ---------- 输入 / 选择弹窗 ---------- */
 function modalInput(title,ph,val,cb){
   const p=document.getElementById('phone');
+  const fresh=!p.querySelector('.modal-mask');
   p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
-  const d=document.createElement('div'); d.className='modal-mask'; d.dataset.act='closemodal';
-  d.innerHTML=`<div class="modal" data-act="noop">
+  const d=document.createElement('div'); d.className='modal-mask'+(fresh?'':' reinit'); d.dataset.act='closemodal';
+  d.innerHTML=`<div class="modal ${fresh?'':'reinit'}" data-act="noop">
     <div class="modal-t">${title}</div>
     <input class="tin" id="_mi" value="${esc(val)}" placeholder="${ph}">
     <div class="btnrow">
@@ -2033,9 +2635,10 @@ function modalInput(title,ph,val,cb){
 }
 function modalOptions(title,opts,cb){
   const p=document.getElementById('phone');
+  const fresh=!p.querySelector('.modal-mask');
   p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
-  const d=document.createElement('div'); d.className='modal-mask'; d.dataset.act='closemodal';
-  d.innerHTML=`<div class="modal" data-act="noop">
+  const d=document.createElement('div'); d.className='modal-mask'+(fresh?'':' reinit'); d.dataset.act='closemodal';
+  d.innerHTML=`<div class="modal ${fresh?'':'reinit'}" data-act="noop">
     <div class="modal-t">${title}</div>
     <div style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto">
       ${opts.map(o=>`<button class="opt" data-act="miopt" data-v="${esc(o[0])}">${o[2]||''}<span>${o[1]}</span></button>`).join('')}
@@ -2053,6 +2656,7 @@ const QUAD_SOFT={'11':'rgba(220,38,38,.10)','10':'rgba(37,99,235,.10)',
                  '01':'rgba(245,158,11,.16)','00':'rgba(148,163,184,.18)'};
 function openQuad(curImp,curUrg,cb){
   const p=document.getElementById('phone');
+  const fresh=!p.querySelector('.modal-mask');
   p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
   const ck=quadKey(curImp,curUrg);
   /* 没选中也上色（选起来更快，一眼就知道哪一格是啥）；
@@ -2066,9 +2670,9 @@ function openQuad(curImp,curUrg,cb){
       ${on?`<span class="qcheck" style="background:${color}">✓</span>`:''}
     </button>`;
   };
-  const d=document.createElement('div'); d.className='modal-mask'; d.dataset.act='closemodal';
+  const d=document.createElement('div'); d.className='modal-mask'+(fresh?'':' reinit'); d.dataset.act='closemodal';
   /* 真·数学象限：两条轴从四格**中间的缝隙**穿过去，标注挂在轴的两端 */
-  d.innerHTML=`<div class="modal quad-modal" data-act="noop">
+  d.innerHTML=`<div class="modal quad-modal ${fresh?'':'reinit'}" data-act="noop">
     <div class="modal-t">轻重缓急 · 点一格就好</div>
     <div class="quadwrap">
       <div class="qcross-h"></div>
@@ -2104,14 +2708,22 @@ function dpTime(){   /* 从两个下拉里读出时间，别让用户手打 */
 }
 function openDatePicker(title,cur,time,cb){
   S._cb=cb;
-  S._dp={title, sel:cur||TODAY, time:time||'', m:new Date((cur||TODAY)+'T00:00:00').getMonth()};
+  /* 年份必须**跟着选中日期**走，不能写死某一年，也不能只存月份：
+     之前这里没有 y、渲染时还把年份锁成 2026，于是翻到 12 月就再也回不来，
+     跨年之后选出来的日子全是过去的年度（写进去立刻变逾期）（2026-10-21 修） */
+  const base=new Date((cur||TODAY)+'T00:00:00');
+  S._dp={title, sel:cur||TODAY, time:time||'',
+         y:isNaN(base)?new Date().getFullYear():base.getFullYear(),
+         m:isNaN(base)?new Date().getMonth():base.getMonth()};
   renderDatePicker();
 }
 function renderDatePicker(){
   const p=document.getElementById('phone');
+  const fresh=!p.querySelector('.modal-mask');   /* 点日期 / 翻月是原地重建 → 不重播进场动画 */
   p.querySelectorAll('.modal-mask').forEach(m=>m.remove());
   const dp=S._dp; if(!dp) return;
-  const y=2026, m=dp.m;
+  if(dp.y==null) dp.y=new Date((dp.sel||TODAY)+'T00:00:00').getFullYear();   /* 兼容旧会话状态 */
+  const y=dp.y, m=dp.m;
   const [curH,curM]=(dp.time||'').split(':');
   const first=(new Date(y,m,1).getDay()||7)-1;        // 周一为一周起点
   const days=new Date(y,m+1,0).getDate();
@@ -2122,8 +2734,8 @@ function renderDatePicker(){
     cells+=`<button class="dp-cell ${dp.sel===key?'sel':''} ${key===TODAY?'today':''}"
       data-act="dpday" data-v="${key}">${d}</button>`;
   }
-  const el=document.createElement('div'); el.className='modal-mask'; el.dataset.act='closemodal';
-  el.innerHTML=`<div class="modal" data-act="noop" style="max-width:320px;max-height:680px;overflow:auto">
+  const el=document.createElement('div'); el.className='modal-mask'+(fresh?'':' reinit'); el.dataset.act='closemodal';
+  el.innerHTML=`<div class="modal ${fresh?'':'reinit'}" data-act="noop" style="max-width:320px;max-height:680px;overflow:auto">
     <div class="modal-t">${dp.title}</div>
     <div style="display:flex;align-items:center;justify-content:space-between">
       <button class="btn ghost" data-act="dpm" data-v="-1" style="flex:none;padding:4px 12px">‹</button>
@@ -2414,7 +3026,7 @@ const REV = {
     let worst='', lateDays=0;
     lateL.forEach(t=>{
       const d=Math.round((new Date(TODAY)-new Date(t.due))/864e5);
-      if(d>lateDays){ lateDays=d; worst=t.title||t.remark.slice(0,12); }
+      if(d>lateDays){ lateDays=d; worst=titleOf(t); }
     });
     return {
       worst, lateDays,
@@ -2422,9 +3034,9 @@ const REV = {
       done: doneL.length,
       undone: undoneL.length,
       overdue: lateL.length,
-      doneList: doneL.map(t=>t.title||t.remark.slice(0,12)).slice(0,8),
-      undoneList: undoneL.map(t=>t.title||t.remark.slice(0,12)).slice(0,8),
-      overdueList: lateL.map(t=>t.title||t.remark.slice(0,12)).slice(0,5),
+      doneList: doneL.map(titleOf).slice(0,8),
+      undoneList: undoneL.map(titleOf).slice(0,8),
+      overdueList: lateL.map(titleOf).slice(0,5),
       /* 这天有没有「动静」：有完成 / 有新增 / 有逾期的东西 */
       moved: doneL.length>0 || todos.some(t=>t.createdAt&&t.createdAt.slice(0,10)===key) || undoneL.length>0
     };
@@ -2474,9 +3086,17 @@ const REV = {
 /* 点击处理抽成具名函数：一来事件委托照旧，二来测试里能直接调用它，
    「点了没反应」这类静默崩溃以后能被自动测出来（2026-10-14 吃过这个亏） */
 function handleAct(e){
+ try{
   const el=e.target.closest('[data-act]');
-  if(!el){ /* 点输入框 / 面板之外的任意处 → 退出聚焦，回到 A1 */
-    if(S.focused && !S.sub && S.tab==='note'){ S.focused=false; render(); }
+  /* 点框外（页面上任何不带 data-act 的空处）→ 退出当前「展开态」：
+     · 聚焦的输入框 → 退回 A1 待机
+     · 展开的筛选面板 → 收起成一行小入口（**条件保留**，按钮上写明「筛选中 · N 条」，
+       跟 A2 退出聚焦后输入框内容还在是一个道理；要彻底清条件，点面板里的【清空】） */
+  if(!el){
+    let _chg=false;
+    if(S.focused && !S.sub && S.tab==='note'){ S.focused=false; _chg=true; }
+    if(S.qOpen && !S.sub){ S.qOpen=false; _chg=true; }
+    if(_chg) render();
     return;
   }
   const act=el.dataset.act, v=el.dataset.v;
@@ -2504,20 +3124,36 @@ function handleAct(e){
     if(m<0){m=11;y--;} if(m>11){m=0;y++;}
     S.calY=y; S.calM=m; render(); return;
   }
-  if(act==='focus'){ if(!S.focused){S.focused=true; render();} return; }
+  if(act==='focus'){ if(!S.focused){S.focused=true; S._panelIn=true; render();} return; }
   if(act==='blur'){ S.focused=false; render(); return; }
 
   if(act==='toggle'){ e.stopPropagation();
     const t=todos.find(x=>x.id==v); if(t){
       t.done=!t.done;
       t.doneAt = t.done ? nowStamp() : null;   /* M1：真实系统时间，不再取硬编码日期 */
+      S._fx={id:t.id,done:t.done};             /* 刚动过的这条，重画后播勾选动效（动效 ④） */
       render(true);
     }
     return;
   }
-  if(act==='open'){ S.sub='detail'; S.detailId=+v; render(); return; }
+  /* 弹窗里点条目 → 关掉弹窗再进详情（否则详情被弹窗盖着看不见） */
+  if(act==='open'){
+    document.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+    S.sub='detail'; S.detailId=+v; render(); return;
+  }
+  /* 日历页筛选：独立弹窗（FR-406 第二屏） */
+  if(act==='calfilter'){ openCalFilter(); return; }
+  /* ⚠️ 这四个都用 refreshCalBar()（= 重画条件区 + 结果区），**不是** render()：
+     render 只重画页面主体，弹窗是挂在主体之外的另一块 DOM，点了不会变 ——
+     之前就栽在这儿：选中态要退出弹窗再进来才看得见。 */
+  if(act==='calclear'){ S.calQ=''; S.calFq=''; S.calFcat=''; S.calFst=''; S.calScope='month';
+    refreshCalBar(); const p=document.getElementById('_cqs'); if(p) p.value=''; return; }
+  if(act==='calscope'){ S.calScope=(v==='all'?'all':'month'); refreshCalBar(); return; }
+  if(act==='calfq'){   S.calFq  =(S.calFq===v  ?'':v); refreshCalBar(); return; }
+  if(act==='calfcat'){ S.calFcat=(S.calFcat===v?'':v); refreshCalBar(); return; }
+  if(act==='calfst'){  S.calFst =(S.calFst===v ?'':v); refreshCalBar(); return; }
   /* 点「记一笔」栏 = 立刻聚焦，等价于原来的悬浮 + 号 */
-  if(act==='tab'){ S.tab=v; S.sub=null; if(v==='note') S.focused=true; render(); return; }
+  if(act==='tab'){ S.tab=v; S.sub=null; if(v==='note'){ S.focused=true; S._panelIn=true; } render(); return; }
   /* 切域：归属跟着当前域走（聚焦态下自动就是「工作」或「生活」，不用再点一次）；
      但如果你手动选过归属，就尊重你的选择，不跟着切 */
   if(act==='domain'){
@@ -2581,7 +3217,7 @@ function handleAct(e){
       /* 逐字段写入：手动填过的（时间、轻重缓急、分类……）一个都不动 */
       const before=(t.manual&&t.manual.due)||(t.manual&&t.manual.imp);
       applyParse(t,p);
-      if(!t.title) t.title=t.remark.slice(0,12);
+      if(!t.title) t.title=titleOf(t);
       toast(before ? '✦ 拆好了 · 你手动填的那几项没被动过'
                    : (p.mode==='ai'?'✦ 拆好了 · 检查一下再保存':'✦ 本机规则解析 · AI 暂时不可用'));
       render(true);
@@ -2597,7 +3233,7 @@ function handleAct(e){
     if(!t.title) t.title=(t.remark||'').trim().slice(0,12);
     t.inbox=false; t.parsed=true; if(!t.domain) t.domain=S.inboxFrom;
     toast('已保存 · 归入「'+(t.domain==='work'?'工作':'生活')+'」'+(t.cat?' / '+t.cat:'')
-          +(!t.title?'':'')+(t.title&&t.title===t.remark.slice(0,12)?' · 标题用了备注前 12 字':''));
+          +(!t.title?'':'')+(t.title&&t.title===String(t.remark||'').slice(0,12)?' · 标题用了备注前 12 字':''));
     S.sub=null; render(); return;
   }
   if(act==='reparseall'){
@@ -2612,7 +3248,7 @@ function handleAct(e){
         if(p.mode==='ai') byAI++;
         if(p.title||p.due||p.cat){
           applyParse(t,p);                       /* 同样逐字段：手动填过的跳过 */
-          if(!t.title) t.title=t.remark.slice(0,12);
+          if(!t.title) t.title=titleOf(t);
           t.domain=S.inboxFrom||t.domain||S.domain;
           t.inbox=false; t.source=p.mode==='ai'?'ai':'text'; n++;
         }
@@ -2624,7 +3260,7 @@ function handleAct(e){
     return;
   }
   if(act==='pin'){const t=todos.find(x=>x.id===S.detailId);t.pinned=!t.pinned;render(true);return;}
-  if(act==='del'){const t=todos.find(x=>x.id===S.detailId);t.deleted=true;toast('已删除 · 30 天内可恢复');S.sub=null;render();return;}
+  if(act==='del'){const t=todos.find(x=>x.id===S.detailId);t.deleted=true;t.deletedAt=nowStamp();toast('已删除 · 30 天内可恢复');S.sub=null;render();return;}
   /* V0.2 · 重新生成当天的复盘（FR-017 验收 11）—— 只有手动点这一个入口才会重算 */
   if(act==='regen'){
     const key=v||S.day||TODAY;
@@ -2641,7 +3277,13 @@ function handleAct(e){
   if(act==='dpday'||act==='dpm'){
     S._dp.time=dpTime();                     // 翻月/换日之前先把时间读回来
     if(act==='dpday') S._dp.sel=v;
-    else S._dp.m=Math.max(0,Math.min(11,S._dp.m + (+v)));
+    else{
+      /* 跨年翻页：12 月往前是明年 1 月，1 月往后是去年 12 月 ——
+         之前把月份钳在 0~11，翻到边界就再也出不去（永远停在 2026 年那圈里） */
+      let mm=S._dp.m+(+v), yy=S._dp.y;
+      if(mm<0){ mm=11; yy--; } if(mm>11){ mm=0; yy++; }
+      S._dp.y=yy; S._dp.m=mm;
+    }
     renderDatePicker(); return;
   }
   if(act==='dpclear'){
@@ -2702,13 +3344,76 @@ function handleAct(e){
   if(act==='rccat'){ syncRecur(); S._recur.cat=(S._recur.cat===v?null:v); openRecur(); return; }
   if(act==='rcsave'){ genRecur(); return; }
   if(act==='trash'){S.sub='trash';render();return;}
-  if(act==='bg'){S.sub='bg';render();return;}
+  /* V0.4 FR-406 搜索 / 筛选：同一个条件再点一次 = 取消 */
+  /* 展开筛选面板也走同一套「从上平移下来」（S._panelIn 是通用的"刚展开某块面板"标记） */
+  if(act==='qtoggle'){ S.qOpen=true; S._panelIn=true; render(true); return; }
+  /* 【清空】= 只把已选的条件清掉，面板**保持展开**（跟日历弹窗里的「清空」一个逻辑）：
+     清空 ≠ 退出筛选 —— 退出是「点框外」那条路（见 handleAct 开头无 data-act 分支） */
+  if(act==='qclear'){
+    clearFilter();
+    const _q=document.getElementById('_qs'); if(_q) _q.value='';
+    refreshSearchBar();
+    if(_q){ try{ _q.focus({preventScroll:true}); }catch(e){} }
+    return;
+  }
+  /* 点条件 = 只重画条件区 + 列表，输入框不重建（打字不会被打断） */
+  if(act==='fq'){   S.fq  =(S.fq===v  ?'':v);   S.qOpen=true; refreshSearchBar(); return; }
+  if(act==='fcat'){ S.fcat=(S.fcat===v?'':v);   S.qOpen=true; refreshSearchBar(); return; }
+  if(act==='fst'){  S.fst =(S.fst===v ?'':v);   S.qOpen=true; refreshSearchBar(); return; }
+  if(act==='theme'){S.sub='theme';render();return;}
+  /* 配色：预设一套 / 取色器自定义 / 还原默认（FR-402） */
+  if(act==='settheme'){
+    const dm=(el.dataset.d==='life')?'life':'work';
+    THEME_CFG[dm]={k:v, custom:false}; themeSave(); render(true); return;
+  }
+  if(act==='customtheme'){
+    const dm=(el.dataset.d==='life')?'life':'work';
+    const picker=document.getElementById('cp-'+dm);
+    const hex=(picker&&picker.value)||themeOf(dm).brand;
+    THEME_CFG[dm]={k:THEME_CFG[dm]?THEME_CFG[dm].k:DEF_THEME[dm], custom:true, brand:hex};
+    themeSave(); render(true); toast('已换成这个颜色'); return;
+  }
+  if(act==='resettheme'){
+    const dm=(v==='life')?'life':'work';
+    THEME_CFG[dm]={k:DEF_THEME[dm], custom:false}; themeSave(); render(true);
+    toast(dm==='work'?'工作域已还原默认配色':'生活域已还原默认配色'); return;
+  }
   if(act==='restore'){const t=todos.find(x=>x.id==v);if(t)t.deleted=false;
     toast('已恢复 · 回到原来的域和分类');render(true);return;}
-  if(act==='pickbg'){toast(v==='work'?'打开图片选择 · 工作域':'打开图片选择 · 生活域');return;}
-  if(act==='closemodal'){document.querySelectorAll('.modal-mask').forEach(m=>m.remove());return;}
-  if(act==='update'){modal('检查更新',
-    `当前已是最新版本 <b>${APPVER}</b>。<br><br>上次检查：今天 ${nowHM()}<br>APK 更新方式：App 内提示 → 点一下下载 → 引导安装<br><br>有新版本时，这里会显示新版本号 + 【下载并安装】按钮。<br><br><span style="font-size:12px;color:var(--ink3)">手机上的 ${esc(APPVER)} 和网页版是同一套代码，功能完全一致；只是手机里那份装在 APK 壳里。</span>`);return;}
+  /* 关弹窗时顺手重画一页：日历页那个「筛选中 · 本月 N 条」才跟得上弹窗里改的条件 */
+  if(act==='closemodal'){document.querySelectorAll('.modal-mask').forEach(m=>m.remove());render(true);return;}
+  /* V0.4 FR-401：真去 GitHub Releases 查版本号。APK 和网页版都查 ——
+     区别只在"拿到新版之后怎么办"：APK 下载安装，网页去发布页拿新文件 */
+  if(act==='update'){
+    const inApp=UPD.isApp();
+    toast('正在检查…');
+    (async()=>{
+      let res='none';
+      try{ res=await UPD.check(); }catch(e){ res='none'; }
+      if(res==='new'){
+        modal('有新版本 '+UPD.st.latest,
+          `<div style="font-size:14px;line-height:1.7;white-space:pre-wrap">${esc(UPD.st.notes||'（作者这次没写更新说明）')}</div>
+           <div class="hint" style="padding:8px 0 0">当前 ${esc(UPD.cur())} · ${inApp?'下载完会跳到系统安装界面':'网页版：到发布页拿新的 index.html 覆盖旧的就行'}</div>
+           <div class="btnrow">
+             ${inApp?'<button class="btn" data-act="updinstall">下载并安装</button>':''}
+             <button class="btn ghost" data-act="updpage">到发布页下载</button>
+           </div>`);
+      }else if(res==='latest'){
+        modal('已是最新',
+          `当前版本 <b>${esc(UPD.cur())}</b>。<br><br>检查时间：<b>${esc(UPD.st.checkedAt||'刚刚')}</b><br><br>
+           <span style="font-size:12px;color:var(--ink3)">有新版本时，这里会显示版本号 + 更新说明${inApp?' +【下载并安装】。':'。'}</span>`);
+      }else{
+        modal('没查到',
+          `暂时没读到版本信息（可能没联网，或仓库还没发布任何版本）。<br><br>
+           最近一次尝试：<b>${esc(UPD.st.checkedAt||'刚刚')}</b><br>
+           <span style="font-size:12px;color:var(--ink3)">不影响使用 —— 任何时候都能来这一页再试。</span>`);
+      }
+      render(true);
+    })();
+    return;
+  }
+  if(act==='updinstall'){ UPD.install(); return; }
+  if(act==='updpage'){ UPD.openPage(); return; }
   if(act==='aitest'){
     if(!AI.ready()){ toast('先把接口地址 / Key / 模型名三个框填满'); return; }
     toast('正在连接…');
@@ -2751,7 +3456,7 @@ function handleAct(e){
         AI.say('拉到 '+ids.length+' 个模型 · 这个 Key 可用', false);
         modal('拉到 '+ids.length+' 个模型',
           `这个 Key 现在<b>真的能用</b>这些模型，已经在下拉里排好了：<br><br>
-           <b>${esc(ids.join('<br>'))}</b><br><br>
+           <b>${ids.map(x=>esc(x)).join('<br>')}</b><br><br>
            当前选的是 <b>${esc(AI.cfg.model)}</b>。要换就在下拉里挑，改完记得再点一次【测试连接】。`);
         render();
       }catch(err){
@@ -2800,6 +3505,14 @@ function handleAct(e){
   }
   if(act==='provider'){ AI.pick(v); render(); return; }
   if(act==='ckind'){ SYNC.cfg.kind=v; SYNC.save(); render(); return; }
+  /* V0.4 FR-405：上传前加密开关（默认开）——改完立即落盘，下次同步就用新口径 */
+  if(act==='cenctoggle'){
+    SYNC.cfg.enc=!CLOUD.encOn(SYNC.cfg); SYNC.save();
+    toast(SYNC.cfg.enc
+      ? (SYNC.cfg.pwd ? '已开启 · 下次上传前会加密' : '已勾选 · 填上同步口令后才会真的加密')
+      : '已关闭 · 云端会存明文');
+    render(true); return;
+  }
   if(act==='ctest'){
     const c=SYNC.cfg;
     if(!SYNC.filled()){ toast('上面的连接信息都填了才测'); return; }
@@ -2881,11 +3594,24 @@ function handleAct(e){
     return;
   }
   if(act==='quick'){S.tab='note';S.sub=null;render();setTimeout(()=>document.getElementById('qi')?.focus(),50);return;}
+ }
+ /* ⚠️ 这里是最后一道防线，别删（2026-10-21 加）：
+    以前某个分支里万一写错一个变量名（比如导出生过 `scope is not defined`），
+    异常只会掉进控制台，界面表现就是「点了没反应」—— 人根本不知道发生了什么。
+    现在任何漏网的错都会在界面上说出来，同时把现场留在控制台里方便查。 */
+ catch(err){
+   console.error('[handleAct] 这一步出错了：', err);
+   try{ toast('这一步出了岔子：'+((err&&err.message)||err)); }catch(e2){}
+ }
 }
 document.addEventListener('click', handleAct);
 
 document.addEventListener('input',e=>{
   if(e.target.id==='qi') S.input=e.target.value;
+  /* V0.4 FR-406：搜索框边打边过滤 —— 只重画列表，不动输入框（保住光标和焦点） */
+  if(e.target.id==='_qs'){ S.q=e.target.value; refreshNoteList(); }
+  /* 日历弹窗里的搜索框：走独立条件，只重画弹窗里的结果区 */
+  if(e.target.id==='_cqs'){ S.calQ=e.target.value; refreshCalList(); }
   if(e.target.dataset.cf){                       /* 支持 supabase.key / cos.bucket 这种点路径 */
     const ks=String(e.target.dataset.cf).split('.'), v=e.target.value;
     let cur=SYNC.cfg;
@@ -2919,13 +3645,25 @@ document.addEventListener('change',e=>{
     render();
   }
 });
-/* 点输入框（或用 Tab 键切进来）→ 进入 A2 输入态 */
+/* 点输入框（或用 Tab 键切进来）→ 进入 A2 输入态
+   ⚠️ 这里**必须**也置 S._panelIn：真实点击的顺序是「浏览器先给输入框焦点 → focusin 先跑 → 再才轮到 click」。
+   要是这里漏了，focusin 那次 render 没有面板动画，等 click 走到 act==='focus' 时 S.focused 已经是 true
+   直接 return，于是**手动点输入框永远看不到下拉动画**（只有切页面进来才有）—— 2026-10-21 修 */
 document.addEventListener('focusin',e=>{
-  if(e.target.id==='qi' && !S.focused){ S.focused=true; render(); }
+  if(e.target.id==='qi' && !S.focused){ S.focused=true; S._panelIn=true; render(); }
 });
 /* Esc 收起键盘 → 回到 A1 */
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape' && S.focused){ S.focused=false; render(); }
+  /* V0.4 FR-406：Esc 也能一步清掉搜索和筛选 */
+  /* Esc = 收起筛选（等价于点框外）；已经收起了再按一次 = 连条件一起清掉 */
+  if(e.key==='Escape' && S.tab==='note' && !S.sub){
+    if(S.qOpen){ S.qOpen=false; render(true); }
+    else if(hasFilter()){
+      clearFilter(); const w=document.getElementById('searchwrap');
+      if(w) w.innerHTML=searchHTML(); refreshNoteList();
+    }
+  }
 });
 
 /* ============ 分类长按拖动排序 ============
@@ -3002,7 +3740,7 @@ window.__androidBack = function(){
     reviews=d.reviews||{};
     if(d.CATS){ CATS.work=d.CATS.work||CATS.work; CATS.life=d.CATS.life||CATS.life; }
     if(d.CAT_STYLE) Object.assign(CAT_STYLE,d.CAT_STYLE);
-    uid=todos.reduce((m,t)=>Math.max(m,t.id||0),100);
+    if(d.lastPurge) DB.lastPurge=d.lastPurge;
     todos.forEach(t=>{ if(!t.manual) t.manual={}; if(t.createdAt==null) t.createdAt=nowStamp(); });
   }else{
     todos=seed(); DB.save();
@@ -3017,12 +3755,28 @@ window.__androidBack = function(){
   AI.load();
   BAK.snapshot();
   REV.ensure();
+  /* V0.4 启动第五件事：回收站到期清理（FR-404）。每月扫一次，删前告知条数 */
+  const _purged=TRASH.purge();
+  if(_purged) setTimeout(()=>toast('回收站清理了 '+_purged+' 条（超过 '+TRASH.DAYS+' 天）'), 900);
   /* V0.3 启动第四件事：**先拉后**。延迟一点，别拖慢首屏；
      没开同步/断网/后端挂了都只是状态栏一行字，界面照常出现（硬规则 13） */
+  UPD.load();
   SYNC.load();
   setTimeout(()=>{ SYNC.run().catch(()=>{}); },600);
+  /* V0.4 FR-401：延迟静默查一次更新。有新版本只在当天提醒一次，不弹窗打扰 */
+  setTimeout(()=>{
+    UPD.check().then(r=>{
+      if(r==='new' && UPD.st.today!==TODAY){
+        UPD.st.today=TODAY; UPD.save();
+        toast('有新版本 '+UPD.st.latest+' · 去「我的 → 检查更新」升级');
+      }
+    }).catch(()=>{});
+  },3000);
 })();
 render();
+/* 每 30 秒看一眼：翻过零点就把「今天」更新掉并重画一次。
+   TODAY 一旦过期，逾期判定和「今天」这一组列表全是昨天的口径，看着像数据错了。 */
+setInterval(()=>{ const d=fmtD(new Date()); if(d!==TODAY){ TODAY=d; render(true); } },30000);
 setInterval(()=>{const d=new Date();document.getElementById('clock').textContent=d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');},1000);
 /* 网络回来的第一时间补传 */
 window.addEventListener('online',()=>{ SYNC.schedule(); });

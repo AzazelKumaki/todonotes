@@ -27,6 +27,6 @@ ok('规则版分类', r.cat==='报表材料', r.cat);
 try{
   ['note','calendar','me'].forEach(t=>{ app.S.tab=t; app.S.sub=null; app.render(); });
   app.S.tab='calendar'; app.S.sub='day'; app.S.day=app.shift(-1); app.render();
-  ['ai','detail','inbox','cloud','cats','trash','bg'].forEach(s=>{ app.S.sub=s; app.S.detailId=app.todos[0].id; app.render(); });
+  ['ai','detail','inbox','cloud','cats','trash','theme'].forEach(s=>{ app.S.sub=s; app.S.detailId=app.todos[0].id; app.render(); });
   ok('全部视图渲染', true);
 }catch(e){ ok('全部视图渲染', false, e.message); }

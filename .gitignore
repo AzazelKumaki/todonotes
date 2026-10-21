@@ -12,3 +12,9 @@ build/
 .idea/
 *.iml
 local.properties
+.tmp/
+tests/_p_cal.html
+tests/_s_*.png
+.tmp/
+tests/_p_cal.html
+tests/_s_*.png
