@@ -159,7 +159,10 @@ const MEASURE = `(function(){
       + "return p.paddingTop+'/'+p.paddingBottom})()");
     const cap = (rc.result && rc.result.result && rc.result.result.value) || '';
     const capOk = cap === '96px/48px';
-    const ok = m.appmode && m.statusbar === 'none' && m.notes === 'none' && m.screentag === 'none'
+    /* V0.4 交付版起，原型标签（A1/A2 那个小方块）和桌面说明卡在页面里已经**不存在**了，
+       量到的是 'missing' —— 比 display:none 更彻底，也算通过。 */
+    const hidden = v => v === 'none' || v === 'missing';
+    const ok = m.appmode && hidden(m.statusbar) && hidden(m.notes) && hidden(m.screentag)
       && !m.hscroll && m.overflow.length === 0 && m2.cell !== '-' && insetOk && capOk;
     allOk = allOk && ok;
     console.log('  [' + s.name + ' ' + s.w + 'x' + s.h + '] ' + (ok ? 'OK' : 'FAIL'));

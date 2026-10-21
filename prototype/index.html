@@ -187,9 +187,6 @@ button.field:hover{background:#F8FAFC;border-color:var(--brand2)}
   background:var(--soft);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--ink3)}
 .kbd-bar button{border:none;background:none;color:var(--brand);font-size:14px;font-weight:600;
   cursor:pointer;font-family:inherit;flex:none}
-.screentag{display:inline-block;font-size:11px;color:var(--ink3);background:var(--soft);
-  border-radius:8px;padding:3px 10px;margin:10px 2px 0;font-weight:600}
-
 /* 日期选择用的小月历 */
 .dp-head{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:2px}
 .dp-head span{text-align:center;font-size:11px;color:var(--ink3)}
@@ -356,14 +353,14 @@ body.app-mode .phone{width:100%;height:100%;border-radius:0;box-shadow:none;
      宁可内容贴一点，也不留一大块空白。变量没注入时（电脑/无头浏览器）两边都是 0，不留白。 */
   padding-top:min(var(--sysbar-top,env(safe-area-inset-top,0px)),96px);
   padding-bottom:min(var(--sysbar-bottom,env(safe-area-inset-bottom,0px)),48px)}
-body.app-mode .statusbar,body.app-mode .notes,body.app-mode .screentag{display:none!important}
+body.app-mode .statusbar,body.app-mode .notes{display:none!important}
 @media (max-width:900px){
   body{padding:0;display:block;background:var(--bg);width:100vw;
     height:100vh;height:100dvh;overflow:hidden;overscroll-behavior:none}
   .phone{width:100%;height:100%;border-radius:0;box-shadow:none;
     padding-top:min(env(safe-area-inset-top,0px),96px);
     padding-bottom:min(env(safe-area-inset-bottom,0px),48px)}
-  .statusbar,.notes,.screentag{display:none!important}
+  .statusbar,.notes{display:none!important}
 }
 </style>
 </head>
