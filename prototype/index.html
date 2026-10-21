@@ -178,7 +178,10 @@ button.field:hover{background:#F8FAFC;border-color:var(--brand2)}
 .radio{width:18px;height:18px;border:1.5px solid var(--line2);border-radius:9px;flex:none;position:relative}
 .opt.on .radio{border-color:var(--brand);background:var(--brand)}
 .opt.on .radio::after{content:"";position:absolute;left:4px;top:4px;width:8px;height:8px;background:#fff;border-radius:4px}
-.tagpill{font-size:11px;padding:3px 8px;border-radius:8px;background:var(--soft);color:var(--brandink)}
+/* 筛选条件胶囊：一律单行、图标与文字横排（分类独占一行之后，原来会把文字挤到 emoji 下面） */
+.tagpill{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;
+  font-size:11px;padding:3px 8px;border-radius:8px;background:var(--soft);color:var(--brandink)}
+.tagpill .cat-chip{width:20px;height:20px;font-size:12px;border-radius:6px}
 .emptybox{text-align:center;color:var(--ink4);font-size:13px;padding:24px 0}
 
 /* ---------- A1 / A2 输入态 ---------- */
@@ -1303,24 +1306,22 @@ function calFilterHTML(){
     <div id="calmodalist" style="max-height:44vh;overflow:auto;margin-top:10px">${calResultHTML()}</div>
   </div>`;
 }
-/* 条件区单独抽出来：点一下就重画它，选中/未选中立刻看得出来 */
+/* 条件区单独抽出来：点一下就重画它，选中/未选中立刻看得出来。
+   排版跟首页搜索面板**同一口径**（2026-10-21 统一）：每组一行、组间 12px、组内 6px，
+   分类不再跟状态挤同一行 —— 含 emoji 的胶囊更高，混排会让两行看着又紧又乱。 */
 function calFilterBarHTML(){
   const qd=[['undone','未完成'],['done','已完成'],['overdue','逾期']];
+  const row=(inner,mt)=>`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:${mt}px">${inner}</div>`;
+  const cats=(CATS[S.domain]||[]).map(c=>`<button class="tagpill" data-act="calfcat" data-v="${esc(c)}"
+        style="${chipStyle(S.calFcat===c)}">${catChip(c)}${esc(c)}</button>`).join('');
   return `
-    <div style="display:flex;gap:6px;align-items:center;margin-top:8px">
-      <span style="font-size:11px;color:var(--ink3)">范围</span>
-      ${[['month','只看本月'],['all','全部']].map(([k,n])=>`<button class="tagpill" data-act="calscope" data-v="${k}"
-        style="${chipStyle(S.calScope===k)}">${n}</button>`).join('')}
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
-      ${QUADS.filter(x=>x[0]).map(([k,n,c])=>`<button class="tagpill" data-act="calfq" data-v="${k}"
-        style="${chipStyle(S.calFq===k,c)}">${n}</button>`).join('')}
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-      ${qd.map(([k,n])=>`<button class="tagpill" data-act="calfst" data-v="${k}" style="${chipStyle(S.calFst===k)}">${n}</button>`).join('')}
-      ${(CATS[S.domain]||[]).map(c=>`<button class="tagpill" data-act="calfcat" data-v="${esc(c)}"
-        style="${chipStyle(S.calFcat===c)}">${catChip(c)}${esc(c)}</button>`).join('')}
-    </div>`;
+    ${row('<span style="font-size:11px;color:var(--ink3)">范围</span>'
+      + [['month','只看本月'],['all','全部']].map(([k,n])=>`<button class="tagpill" data-act="calscope" data-v="${k}"
+        style="${chipStyle(S.calScope===k)}">${n}</button>`).join(''), 8)}
+    ${row(QUADS.filter(x=>x[0]).map(([k,n,c])=>`<button class="tagpill" data-act="calfq" data-v="${k}"
+        style="${chipStyle(S.calFq===k,c)}">${n}</button>`).join(''), 12)}
+    ${row(qd.map(([k,n])=>`<button class="tagpill" data-act="calfst" data-v="${k}" style="${chipStyle(S.calFst===k)}">${n}</button>`).join(''), 12)}
+    ${cats?row(cats,12):''}`;
 }
 function openCalFilter(){
   modal('筛选', calFilterHTML());
@@ -1374,19 +1375,22 @@ function searchHTML(){
     </div>
   </div>`;
 }
-/* 条件区单独抽出来：点一下只重画它，选中态当场就变，输入框不重建（焦点和光标都不丢） */
+/* 条件区单独抽出来：点一下只重画它，选中态当场就变，输入框不重建（焦点和光标都不丢）
+   排版（2026-10-21 修）：**每组各占一行、组间留 12px**，组内 6px。
+   以前是把「状态」和「分类」挤在同一个 flex 里，含 emoji 的分类胶囊比状态胶囊高，
+   两行贴在一起看着又挤又乱 —— 现在三类条件各归各的行，高度也就齐了。 */
 function searchBarHTML(){
   const qd=[['undone','未完成'],['done','已完成'],['overdue','逾期']];
-  return `<div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${QUADS.filter(x=>x[0]).map(([k,n,c])=>`<button class="tagpill" data-act="fq" data-v="${k}"
-        style="${chipStyle(S.fq===k,c)}">${n}</button>`).join('')}
-    </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${qd.map(([k,n])=>`<button class="tagpill" data-act="fst" data-v="${k}"
-        style="${chipStyle(S.fst===k)}">${n}</button>`).join('')}
-      ${(CATS[S.domain]||[]).map(c=>`<button class="tagpill" data-act="fcat" data-v="${esc(c)}"
-        style="${chipStyle(S.fcat===c)}">${catChip(c)}${esc(c)}</button>`).join('')}
-    </div>`;
+  const row=inner=>`<div style="display:flex;gap:6px;flex-wrap:wrap">${inner}</div>`;
+  const cats=(CATS[S.domain]||[]).map(c=>`<button class="tagpill" data-act="fcat" data-v="${esc(c)}"
+        style="${chipStyle(S.fcat===c)}">${catChip(c)}${esc(c)}</button>`).join('');
+  return `<div style="display:flex;flex-direction:column;gap:12px">
+    ${row(QUADS.filter(x=>x[0]).map(([k,n,c])=>`<button class="tagpill" data-act="fq" data-v="${k}"
+        style="${chipStyle(S.fq===k,c)}">${n}</button>`).join(''))}
+    ${row(qd.map(([k,n])=>`<button class="tagpill" data-act="fst" data-v="${k}"
+        style="${chipStyle(S.fst===k)}">${n}</button>`).join(''))}
+    ${cats?row(cats):''}
+  </div>`;
 }
 /* 只重画条件区 + 列表（同日历的 refreshCalBar）：不清空、不收起、不重建输入框 */
 function refreshSearchBar(){
@@ -1821,25 +1825,6 @@ function noteHTML(){
     <div id="listwrap">${noteListHTML()}</div>
   </div>`;
 }
-/* 空态引导：**只在一条待办都没有的时候**出现。
-   有数据之后它自己消失 —— 界面就留给内容，不再挂着一堆说明小字。 */
-function firstGuideHTML(){
-  return `<div class="section" style="gap:8px">
-    <div style="font-size:14px;font-weight:600">说一句话，就记下来了</div>
-    <div style="font-size:13px;line-height:20px;color:var(--ink2)">
-      在上面输入框写一句原话，比如「明天下午三点前把周报交给王总」，然后选一条路：<br>
-      ① 点右边 <b>✦</b> —— 自动拆出标题 / 时间 / 轻重缓急，检查后【保存】<br>
-      ② 直接【保存】 —— 字段不全也没关系，它会先躺进右下角的<b>收件箱</b>等你补
-    </div>
-    <div style="font-size:12px;line-height:18px;color:var(--ink3)">
-      记下来之后：点条目左边的小圆圈 = 标完成 · 点条目本身 = 进详情<br>
-      左边竖条的颜色就是轻重缓急：<span style="color:#DC2626">红 马上做</span> ·
-      <span style="color:#2563EB">蓝 计划做</span> ·
-      <span style="color:#F59E0B">橙 快速处理</span> ·
-      <span style="color:#94A3B8">灰 有空再说</span>
-    </div>
-  </div>`;
-}
 /* 列表区单独抽出来：搜索时只重画这一块，输入框不重建就不会丢焦点 */
 function noteListHTML(){
   const od = applyFilter(listTodos().filter(overdue));
@@ -1847,7 +1832,6 @@ function noteListHTML(){
   const today = applyFilter(listTodos().filter(t=>t.due===TODAY || (t.done&&t.doneAt&&t.doneAt.startsWith(TODAY))));
   if(hasFilter() && !od.length && !today.length)
     return '<div class="emptybox">没有匹配的 · 点【清空】看看全部</div>';
-  if(!hasFilter() && !od.length && !today.length && !listTodos().length) return firstGuideHTML();
   return `
     ${od.length?`<div style="display:flex;gap:6px;align-items:center;color:#DC2626;font-size:13px;font-weight:600;padding:6px 2px 0">
        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
