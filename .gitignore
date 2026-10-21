@@ -15,6 +15,5 @@ local.properties
 .tmp/
 tests/_p_cal.html
 tests/_s_*.png
-.tmp/
-tests/_p_cal.html
-tests/_s_*.png
+# 打包时由 copyWeb 从 prototype/ 复制过来的产物，不进版本库（只保留 prototype/index.html 这一份真身）
+android/app/src/main/assets/

@@ -78,7 +78,7 @@ public class MainActivity extends Activity {
         public void installApk(String url) {
             if (url == null || (!url.startsWith("https://github.com/")
                     && !url.startsWith("https://objects.githubusercontent.com/"))) {
-                Toast.makeText(this, "安装包地址不在允许的域名里", Toast.LENGTH_LONG).show();
+                Toast.makeText(MainActivity.this, "安装包地址不在允许的域名里", Toast.LENGTH_LONG).show();
                 return;
             }
             new Thread(() -> {
@@ -115,7 +115,7 @@ public class MainActivity extends Activity {
                 final Exception e2 = err; final Uri u2 = uri;
                 runOnUiThread(() -> {
                     if (e2 != null || u2 == null) {
-                        Toast.makeText(this, "没下下来：" + (e2 == null ? "未知原因" : e2.getMessage()),
+                        Toast.makeText(MainActivity.this, "没下下来：" + (e2 == null ? "未知原因" : e2.getMessage()),
                                 Toast.LENGTH_LONG).show();
                         return;
                     }
@@ -125,7 +125,7 @@ public class MainActivity extends Activity {
                         it.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
                         startActivity(it);
                     } catch (Exception e) {
-                        Toast.makeText(this, "叫不起来安装界面，去「下载 / " + DIR_NAME + "」手动装",
+                        Toast.makeText(MainActivity.this, "叫不起来安装界面，去「下载 / " + DIR_NAME + "」手动装",
                                 Toast.LENGTH_LONG).show();
                     }
                 });

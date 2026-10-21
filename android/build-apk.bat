@@ -1,41 +1,49 @@
 @echo off
-chcp 65001 >nul
-title æ‰“åŒ…å¾…åŠžæ¸…å• APK
+chcp 936 >nul
+title ´ò°ü´ý°ìÇåµ¥ APK
 
-REM ============ ä¸€é”®æ‰“åŒ…ï¼šåŒå‡»è¿™ä¸ªæ–‡ä»¶å°±è¡Œ ============
-REM è¯´æ˜Žï¼šå®ƒä¼šè‡ªåŠ¨æŠŠ prototype\index.html æ‹·è¿› assets å†æ‰“åŒ…ï¼Œ
-REM       æ‰€ä»¥æ”¹å®Œç½‘é¡µç‚¹ä¸€ä¸‹è¿™é‡Œï¼Œä¸¤åˆ†é’Ÿå‡º APKã€‚
+REM ============ Ò»¼ü´ò°ü£ºË«»÷Õâ¸öÎÄ¼þ¾ÍÐÐ ============
+REM ËµÃ÷£ºËü»á×Ô¶¯°Ñ prototype\index.html ¿½½ø assets ÔÙ´ò°ü£¨build.gradle ÀïµÄ copyWeb ÈÎÎñ£©£¬
+REM       ËùÒÔ¸ÄÍêÍøÒ³µãÒ»ÏÂÕâÀï£¬°ë·ÖÖÓµ½Á½·ÖÖÓ¾Í³öÐÂ APK¡£
 
 setlocal enabledelayedexpansion
 
 set "PROJ=%~dp0"
 if "%PROJ:~-1%"=="\" set "PROJ=%PROJ:~0,-1%"
 set "ROOT=%PROJ%\.."
-set "JAVA_HOME=%ROOT%\.toolchain\jdk21"
+REM JDK 17£¨Temurin£©¡ª¡ª AGP 8.11 ÒªÇó 17 ÒÔÉÏ£»±¾»úÄ¬ÈÏµÄ java 1.8 Ã»ÓÐ javac£¬²»ÄÜÓÃ
+set "JAVA_HOME=%ROOT%\.toolchain\jdk"
 set "ANDROID_HOME=%ROOT%\.toolchain\android-sdk"
 set "ANDROID_SDK_ROOT=%ANDROID_HOME%"
 
-REM æ‰¾æœ¬æœºå·²ç»ä¸‹å¥½çš„ Gradleï¼ˆç¬¬ä¸€æ¬¡æž„å»ºæ‰éœ€è¦è”ç½‘ä¸‹è½½ä¾èµ–ï¼‰
+REM ÕÒ±¾»úÒÑ¾­ÏÂºÃµÄ Gradle£¨µÚÒ»´Î¹¹½¨²ÅÐèÒªÁªÍøÏÂÔØÒÀÀµ£©
 set "GRADLE_HOME="
 for /d %%D in ("%USERPROFILE%\.gradle\wrapper\dists\gradle-8.14.3-all\*") do (
     if exist "%%D\gradle-8.14.3\bin\gradle.bat" set "GRADLE_HOME=%%D\gradle-8.14.3"
 )
 if "%GRADLE_HOME%"=="" (
-    echo [x] æ²¡æ‰¾åˆ° Gradleã€‚è¯·ç”¨ android\gradlew.bat assembleRelease å†è¯•ä¸€æ¬¡
+    echo [x] Ã»ÕÒµ½ Gradle¡£ÇëÓÃ android\gradlew.bat assembleRelease ÔÙÊÔÒ»´Î
     pause & exit /b 1
 )
 
-echo [1/3] çŽ¯å¢ƒï¼š%JAVA_HOME%
-echo [2/3] SDK  ï¼š%ANDROID_HOME%
-echo [3/3] å¼€å§‹æ‰“åŒ…ï¼Œç¬¬ä¸€æ¬¡ä¼šä¸‹è½½ä¾èµ–ï¼Œè¯·è€å¿ƒç­‰å‡ åˆ†é’Ÿ...
-call "%GRADLE_HOME%\bin\gradle.bat" -p "%PROJ%" assembleRelease --console=plain
+REM °æ±¾ºÅ´Ó build.gradle Àï¶Á ¡ª¡ª Éý¼¶Ê±Ö»¸Ä app\build.gradle µÄ versionName Ò»´¦£¬ÕâÀï×Ô¶¯¸úÉÏ
+REM £¨ÓÃ token ÇÐ·ÖÔÙ°þÒýºÅ£ºÖ±½ÓÔÚ for Ñ¡ÏîÀïÐ´ delims=^" »á±» cmd µÄÒýºÅ¹æÔò³Ôµô£¬ÕûÐÐ±¨´í£©
+set "VERRAW="
+for /f "usebackq tokens=2" %%V in (`findstr /c:"versionName" "%PROJ%\app\build.gradle"`) do set "VERRAW=%%V"
+set "VER=0.0"
+if defined VERRAW set "VER=%VERRAW:"=%"
+echo [1/3] JDK  £º%JAVA_HOME%
+echo [2/3] SDK  £º%ANDROID_HOME%
+echo [3/3] °æ±¾ £º%VER% ¡¤ ¿ªÊ¼´ò°ü£¨--offline ÓÃ±¾»ú»º´æ£¬²»ÁªÍø£©...
+
+call "%GRADLE_HOME%\bin\gradle.bat" -p "%PROJ%" assembleRelease --offline --console=plain
 
 echo.
 if exist "%PROJ%\app\build\outputs\apk\release\app-release.apk" (
-    echo æ‰“åŒ…æˆåŠŸï¼šandroid\app\build\outputs\apk\release\app-release.apk
-    copy /y "%PROJ%\app\build\outputs\apk\release\app-release.apk" "%ROOT%\å¾…åŠžæ¸…å•-V0.3.apk" >nul
-    echo å·²å¤åˆ¶åˆ°é¡¹ç›®æ ¹ç›®å½•ï¼šå¾…åŠžæ¸…å•-V0.3.apk
+    echo ´ò°ü³É¹¦£ºandroid\app\build\outputs\apk\release\app-release.apk
+    copy /y "%PROJ%\app\build\outputs\apk\release\app-release.apk" "%ROOT%\´ý°ìÇåµ¥-V%VER%.apk" >nul
+    echo ÒÑ¸´ÖÆµ½ÏîÄ¿¸ùÄ¿Â¼£º´ý°ìÇåµ¥-V%VER%.apk
 ) else (
-    echo æ‰“åŒ…å¤±è´¥ï¼ŒæŠŠä¸Šé¢çš„çº¢è‰²æŠ¥é”™å‘æˆ‘å°±è¡Œã€‚
+    echo ´ò°üÊ§°Ü ¡ª¡ª °ÑÉÏÃæ±êÁË error µÄÄÇ¼¸ÐÐ·¢ÎÒ¡£
 )
 pause
