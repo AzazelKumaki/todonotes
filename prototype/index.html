@@ -383,32 +383,19 @@ body.app-mode .statusbar,body.app-mode .notes,body.app-mode .screentag{display:n
 </div>
 
 <div class="notes">
-  <h3>可点的地方</h3>
-  • <b>一进来就是 A2</b>：输入框聚焦，六项字段面板直接展开在下面<br>
-  • 聚焦态三条路：直接【保存】→ 进收件箱 · 点 <code>✦</code> 解析后【保存】 · 手工填完【保存】<br>
-  • 退出 A2 回 A1：点【<b>返回</b>】、点<b>输入框外任意处</b>、或按 <code>Esc</code><br>
-  • 顶部「工作 / 生活」切换 → 整站配色 + 数据都变<br>
-  • 记一笔：打字 → 点 <code>✦</code> 解析 → 面板展开 → 保存<br>
-  • 列表中：<b>点条目</b>进详情 · <b>点左边圆圈</b>只标完成<br>
-  • 标完成后<b>不会消失</b>：整条转灰、象限色条转灰、<b>排到当日最下方</b><br>
-  • 日历格里的 <code>3●2○</code> 会<b>跟着勾选实时变</b>；逾期数也同步减少<br>
-  • 右下角圆形按钮 = 收件箱（<b>配色跟着当前域变</b>）<br>
-  • 日历：点某天只显示<b>那天自己的事</b>（逾期项挂在它原定那天，不跟着跑到未来）<br>
-  • 标完成会记下<b>真实完成时刻</b>：翻回它原定那天能看到「完成于 10月15日 22:31」<br>
-  • 日历栏<b>没有悬浮 + 号</b>了 —— 点底部「记一笔」就是聚焦输入<br>
-  • A2 / 详情页：<b>每个字段整行都能点</b> · 选日期会<b>弹出月历</b>直接点，还能填时间<br>
-  • 日历页「<b>🔁 循环安排</b>」：可设每周 / 每月 / 每隔 N 天，属性照样记<br>
-  • 收件箱：点圆圈直接标完成；点条目 → 右上角 <code>✦</code> 单条解析 → 【保存】归类<br>
-  • 分类管理：整行可点编辑 · <b>长按可拖动排序</b>（顺序在选择时也生效）· 自定义颜色和符号<br>
-  • 分类器色作用在<b>淡色底衬 + 左侧竖条</b>上（emoji 本身保持原色，不突兀）<br>
-  • 选时间用<b>两个下拉</b>（点 / 分），不用手打<br>
-  • 我的：<b>AI 服务配置</b>已启用 —— 选服务商 → 三个框自动填好 → 只贴 Key → 测试连接（真打一次）→ 保存<br>
-  • 没配 AI 也能用：解析走<b>本机规则</b>，复盘留位置不放假文案<br>
-  • 日历点某天 → 顶部是<b>当天的复盘</b>（跨域一句话 + 完成/逾期统计 · 生成后可点【重新生成】）<br>
-  • 复盘只对<b>昨天及更早</b>生成（最多回溯 7 天），今天的总结明天才出<br>
-  • 导出备份 → 选范围 → <b>真的下载</b> JSON + 两份都可以：CSV 带 BOM，Excel 打开不乱码<br>
-  • 回收站可恢复 · 换配色可分别给工作 / 生活各一套<br>
-  • 本地自动备份<b>没有入口</b>：每次打开自动存本机一份，保留 30 天，不含 Key
+  <h3>待办清单</h3>
+  <b>怎么开始</b><br>
+  在上面输入框里说一句话，点 <code>✦</code> 让它帮你拆成标题、时间、轻重缓急，再点【保存】。<br>
+  没配 AI 也能用 —— 本机规则照样能拆。<br><br>
+  <b>几个要点</b><br>
+  · 点<b>条目</b>进详情 · 点<b>左边圆圈</b>只标完成<br>
+  · 四种颜色代表轻重缓急：<span style="color:#DC2626">红=马上做</span> ·
+    <span style="color:#2563EB">蓝=计划做</span> ·
+    <span style="color:#F59E0B">橙=快速处理</span> ·
+    <span style="color:#94A3B8">灰=有空再说</span><br>
+  · 日历里 <code>3●2○</code> = 3 件完成、2 件未完成<br>
+  · 数据只存在本机。要跨设备同步、备份接 AI，去第三栏「我的」<br><br>
+  <span style="font-size:12px;color:#64748B">完整说明见 docs/「内容手册」</span>
 </div>
 
 <script>
@@ -1634,7 +1621,7 @@ function trashHTML(){
   return `${backRow}
     <div class="pagetitle">回收站</div>
     <div class="stack">
-      <div class="hint">删掉的东西在这里躺 30 天，到期自动清理 · 恢复后回到原来的域和分类</div>
+      <div class="hint">删掉的在这里躺 30 天 · 恢复后回到原来的域和分类</div>
       ${items.length?items.map(t=>`<div class="row" style="cursor:default">
         <span class="qbar" style="background:${qcolor(t)};height:32px"></span>
         <span style="flex:1">
@@ -1672,9 +1659,7 @@ function themeHTML(){
     <div class="stack">
       ${card('work','工作域','blue')}
       ${card('life','生活域','coral')}
-      <div class="hint">两个域各一套，切域时整站配色跟着换 —— 这是「一眼分辨工作 / 生活」最强的一招。
-      不喜欢预设就用下面的取色器挑一个，剩下的配色会自动配好。<br>
-      配色只存在本机，<b>不进备份、导出和云同步</b>。</div>
+      <div class="hint">两个域各一套，切域时跟着换 · 配色只存在本机，不进备份和云同步</div>
     </div>`;
 }
 
@@ -1828,7 +1813,6 @@ function modal(title,body){
 function noteHTML(){
   return `
   <div class="stack">
-    <span class="screentag">${S.focused?'A2 · 记一笔（输入态 · 已聚焦）':'A1 · 记一笔（默认首屏 · 未聚焦）'}</span>
     <div class="inputbox ${S.focused?'focused':''}" data-act="focus">
       <textarea id="qi" rows="2" placeholder="说点什么…" autofocus>${esc(S.input)}</textarea>
       <button class="aibtn" data-act="parse" title="AI 解析">
@@ -1836,10 +1820,27 @@ function noteHTML(){
       </button>
     </div>
     ${S.focused ? parseHTML() : ''}
-    <div class="hint">聚焦时<b>五项字段</b>就在下面（重要 + 紧急已合并成「轻重缓急」）：可直接点【保存】（四项没填全就进收件箱）· 点 ✦ 解析后再保存 · 点【返回】或框外任意处退出</div>
-    <div class="hint">点条目 = 进详情 · 点左边圆圈 = 直接标为完成，不进详情</div>
     <div id="searchwrap">${searchHTML()}</div>
     <div id="listwrap">${noteListHTML()}</div>
+  </div>`;
+}
+/* 空态引导：**只在一条待办都没有的时候**出现。
+   有数据之后它自己消失 —— 界面就留给内容，不再挂着一堆说明小字。 */
+function firstGuideHTML(){
+  return `<div class="section" style="gap:8px">
+    <div style="font-size:14px;font-weight:600">说一句话，就记下来了</div>
+    <div style="font-size:13px;line-height:20px;color:var(--ink2)">
+      在上面输入框写一句原话，比如「明天下午三点前把周报交给王总」，然后选一条路：<br>
+      ① 点右边 <b>✦</b> —— 自动拆出标题 / 时间 / 轻重缓急，检查后【保存】<br>
+      ② 直接【保存】 —— 字段不全也没关系，它会先躺进右下角的<b>收件箱</b>等你补
+    </div>
+    <div style="font-size:12px;line-height:18px;color:var(--ink3)">
+      记下来之后：点条目左边的小圆圈 = 标完成 · 点条目本身 = 进详情<br>
+      左边竖条的颜色就是轻重缓急：<span style="color:#DC2626">红 马上做</span> ·
+      <span style="color:#2563EB">蓝 计划做</span> ·
+      <span style="color:#F59E0B">橙 快速处理</span> ·
+      <span style="color:#94A3B8">灰 有空再说</span>
+    </div>
   </div>`;
 }
 /* 列表区单独抽出来：搜索时只重画这一块，输入框不重建就不会丢焦点 */
@@ -1849,6 +1850,7 @@ function noteListHTML(){
   const today = applyFilter(listTodos().filter(t=>t.due===TODAY || (t.done&&t.doneAt&&t.doneAt.startsWith(TODAY))));
   if(hasFilter() && !od.length && !today.length)
     return '<div class="emptybox">没有匹配的 · 点【清空】看看全部</div>';
+  if(!hasFilter() && !od.length && !today.length && !listTodos().length) return firstGuideHTML();
   return `
     ${od.length?`<div style="display:flex;gap:6px;align-items:center;color:#DC2626;font-size:13px;font-weight:600;padding:6px 2px 0">
        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
@@ -1856,7 +1858,7 @@ function noteListHTML(){
     ${od.map(itemHTML).join('')}
     <div class="grouptitle" style="margin-top:6px">今天</div>
     ${today.length?today.map(itemHTML).join(''):'<div class="emptybox">今天没有安排</div>'}
-    <div class="hint" style="margin-bottom:64px">更远日期的事项去「日历」里看 · 首屏只放逾期和今天，<b>放不下可以下滑</b>（不再折叠）</div>`;
+    <div style="height:64px"></div>`;      /* 给悬浮按钮留位置，不再挂一句说明 */
 }
 
 function parseHTML(){
@@ -1869,9 +1871,7 @@ function parseHTML(){
     <span class="fact">${v?'▾':'＋'}</span></button>`;
   /* data-act="noop" 让面板内部的点击不会误判成"点框外"而退出聚焦 */
   return `<div class="section ${S._panelIn?'panelin':''}" style="border-color:var(--brand)" data-act="noop">
-    <div class="hint" style="padding:0">${has
-      ? ('✦ 解析好了 · 归属已按「'+(S.domain==='work'?'工作':'生活')+'」填好，点任意一行都能改')
-      : '点任意一行手工填 · 或直接【保存】让它进收件箱'}</div>
+    ${has?`<div class="hint" style="padding:0 0 2px">✦ 已按「${S.domain==='work'?'工作':'生活'}」填好 · 点任意一行都能改</div>`:''}
     ${f('title','标题',p.title)}
     ${f('due','完成时间',p.dueText)}
     ${f('quad','轻重缓急',quadText(p.imp,p.urg))}
@@ -1907,15 +1907,11 @@ function inboxHTML(){
     </div>
     <div class="pagetitle">收件箱</div>
     <div class="stack">
-      <div class="segbar">
-        <span class="swatches"><i class="sw w"></i><i class="sw l"></i></span>
-        <span>同一个收件箱，两套配色：从工作域进 = 冷蓝，从生活域进 = 暖珊瑚（内容完全一致）</span>
-      </div>
       <div class="segbar" data-act="reparseall" style="background:#FEF3C7;color:#92400E;cursor:pointer">
         <span>有 ${undone} 条待整理 · 点这里一键重新解析</span>
       </div>
       ${items.length?items.map(itemHTML).join(''):'<div class="emptybox">收件箱是空的</div>'}
-      <div class="hint" style="margin-bottom:64px">点左边圆圈可直接标完成（<b>计入今天的完成</b>）· 点条目进详情，<b>标题 / 完成时间 / 轻重缓急 / 归属 四项填全</b>后点【保存】即归入该域（分类选填）</div>
+      <div style="height:64px"></div>
     </div>`;
 }
 
@@ -1960,8 +1956,7 @@ function calendarHTML(){
       <span style="flex:1;font-size:14px;color:var(--ink)">循环安排 · 周会 / 每月缴费 / 每隔几天</span>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>
     ${grid}
-    <div class="hint">标记：<b>●</b> 已完成 / <b>○</b> 未完成 · 红下划线 = 当天有逾期 · 灰底 = 这天有总结</div>
-    <div class="hint">点某一天 → 展开当天明细；点条目 = 进详情，点圆圈 = 标完成</div>
+    <div class="hint">● 已完成 · ○ 未完成 · 红线 = 有逾期 · 灰底 = 有总结</div>
   </div>`;
 }
 
@@ -2008,7 +2003,6 @@ function dayHTML(){
     <div style="font-size:18px;font-weight:600;padding:8px 2px 0">${dt.getMonth()+1} 月 ${dt.getDate()} 日 · ${wd}</div>
     <div class="stack">
       ${reviewBoxHTML(key)}
-      <div class="hint">点条目 = 进详情 · 点左边圆圈 = 标为完成，不进详情 · 总结是<b>跨域一句话</b>，工作和生活两边看到的一模一样</div>
       ${all.length?all.map(itemHTML).join(''):'<div class="emptybox">这天没有事项</div>'}
     </div>`;
 }
@@ -2033,10 +2027,7 @@ function detailHTML(){
         <span class="fval" style="font-size:16px;font-weight:600">${esc(titleOf(t))}${t.title?'':'<span style="font-size:11px;color:var(--ink4)"> · 待填</span>'}</span>
         <span class="fact">▾</span></button>
       ${!t.title&&t.remark
-        ? `<div class="hint" style="padding:0 0 4px;background:#FEF3C7;color:#92400E">上面这行现在显示的是<b>备注的前 12 个字</b>，标题其实还是空的。点它改个正式标题；不改也行，保存时会自动拿它当标题。</div>`:''}
-      <div class="hint">${t.inbox
-        ? '缺的那几行点一下就能补 · 点右上角「✦」让 AI 从原话拆出来，补完点【保存】就归到对应域（<b>分类选填</b>，不填也能存）'
-        : '点任意一行都能改'}</div>
+        ? `<div class="hint" style="padding:0 0 4px;background:#FEF3C7;color:#92400E">暂用备注前 12 字当标题 · 可点上面改</div>`:''}
       ${f('quad','轻重缓急',quadText(t.imp,t.urg))}
       ${f('due','完成时间',t.due?t.due.slice(5).replace('-','月')+'日'+(t.time?' '+t.time:''):'')}
       ${f('domain','归属',t.domain?(t.domain==='work'?'工作':'生活'):'')}
@@ -2064,27 +2055,18 @@ function backupHTML(){
       <div class="grouptitle">导出 · 当前共 ${n} 条待办</div>
       <div class="section">
         <button class="btn" data-act="doexport">导出全部数据</button>
-        <div class="hint" style="padding:0">一次点出<b>两个文件</b>：<br>
-          · <b>.json</b> —— 完整备份（待办 + 分类 + 复盘），<b>能导回本应用</b><br>
-          · <b>.csv</b> —— Excel 直接双击打开，中文不乱码（给人看，不能导回）</div>
-        <div class="hint" style="padding:0;background:var(--soft);border-radius:10px">
-          <b>文件去哪儿了</b><br>
-          ${inApp?'手机：<b>文件管理 → 下载 → 待办清单</b>':'电脑：<b>浏览器默认的下载目录</b>（一般是「下载」文件夹）'}
-        </div>
+        <div class="hint" style="padding:0">导出两份：<b>.json</b> 可导回本应用 · <b>.csv</b> 给 Excel 看</div>
+        <div class="hint" style="padding:0">${inApp?'文件在「文件管理 → 下载 → 待办清单」':'文件在浏览器的默认下载目录'}</div>
       </div>
       <div class="grouptitle">导入 · 把备份吃回来</div>
       <div class="section">
         <button class="btn ghost" data-act="doimport">从 JSON 备份文件导入</button>
-        <div class="hint" style="padding:0">选之前导出过的那个 <b>.json</b> 文件。两种导入方式：<br>
-          · <b>合并</b>（推荐）：保留现在的，把文件里的并进来；同一个条目以<b>最后修改更晚</b>的为准<br>
-          · <b>覆盖</b>：清空现在的，只留文件里的<br>
-          自动备份的归档文件也能导入 —— 会让你挑其中某一天。</div>
+        <div class="hint" style="padding:0">选 .json 备份文件，再选<b>合并</b>（保留现有的并进来）或<b>覆盖</b>（清空只留文件里的）</div>
       </div>
       <div class="grouptitle">自动备份存档</div>
       <div class="section">
         <button class="btn ghost" data-act="bakview">查看已攒下的快照（${BAK.list().length} 份）</button>
-        <div class="hint" style="padding:0">每次打开 App 自动写一份当天的，保留 30 天。它们不在文件夹里，
-          <b>点了导出才会变成文件</b>。所有导出文件<b>都不含 API Key</b>。</div>
+        <div class="hint" style="padding:0">每次打开自动写一份当天的，保留 30 天 · 点了导出才变成文件 · <b>不含 API Key</b></div>
       </div>
     </div>`;
 }
@@ -2110,14 +2092,11 @@ function bakHTML(){
   return `<div class="backrow"><button class="backbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="pagetitle">自动备份存档</div>
     <div class="stack">
-      <div class="hint">这些<b>不是</b>文件夹里的文件 —— 它们躺在浏览器 / App 的本地数据仓库里，
-        所以你在电脑里翻不到。<b>只有点「导出」才会变成真文件。</b><br>
-        规则：每次打开 App 自动写一份当天的，保留最近 30 天，里面<b>不含 API Key</b>。</div>
+      <div class="hint">这些快照在本地数据仓库里，<b>只有点「导出」才会变成文件</b> · 保留最近 30 天</div>
       ${ks.length?`
       <div class="btnrow"><button class="btn" data-act="bakall">全部导出成一个文件</button></div>
       <div class="grouptitle">共 ${ks.length} 份 · 合计 ${(totalBytes/1024).toFixed(0)} KB</div>
-      ${rows}
-      <div class="hint">导出后文件去哪儿：手机 <b>下载 / 待办清单 /</b>；电脑是浏览器的默认下载目录。</div>`
+      ${rows}`
       :'<div class="emptybox">还没有备份 —— 关掉页面重新打开一次就有了</div>'}
     </div>`;
 }
@@ -2150,7 +2129,6 @@ function meHTML(){
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></button>`;
   return `
   <div class="stack">
-    <div class="hint" style="padding:6px 2px 0">设置与域无关 · 上方「工作 / 生活」为灰色静态态，不可切换</div>
     ${cloudCard}
     ${g('配置', row(cog,'AI 服务配置 · 换服务商改三个框','ai'))}
     ${g('数据与备份',
@@ -2162,9 +2140,9 @@ function meHTML(){
     ${g('其他',
       row(ic('<path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/>'),'检查更新 · 当前 '+UPD.cur()
         + (UPD.st.checkedAt?' · 上次 '+esc(UPD.st.checkedAt.slice(5,16)):''),'update'))}
-    <div class="hint">本地自动备份是<b>自动执行</b>的（每次打开写一份，保留 30 天），不用你点；
-      已经攒下 <b>${BAK.list().length}</b> 份，最近一份 <b>${esc(BAK.last()||'—')}</b>，在「数据与备份」里能查看和导出。<br>
-      AI 状态：${AI.ready()?(AI.cfg.ok?'<b style="color:#059669">已接上</b> · '+esc(AI.cfg.provider)+' / '+esc(AI.cfg.model):'已填 Key，还没通过测试'+(AI.cfg.msg?'（'+esc(AI.cfg.msg)+'）':'')):'<b>未配置</b> · 现在是本机规则解析，不影响使用'}</div>
+    <div class="hint">${BAK.list().length?`本地备份 ${BAK.list().length} 份 · 最近 ${esc(BAK.last()||'—')} · `:''}AI：${
+      AI.ready()?(AI.cfg.ok?'已接上 · '+esc(AI.cfg.provider)+' / '+esc(AI.cfg.model):'已填 Key，还没通过测试')
+                :'未配置 · 走本机规则解析'}</div>
   </div>`;
 }
 
@@ -2203,17 +2181,15 @@ function aiHTML(){
     ? `<select class="tin" data-ai="model">
          ${ms.map(m=>`<option value="${esc(m)}" ${m===c.model?'selected':''}>${esc(m)}</option>`).join('')}
          ${known?'':`<option value="${esc(c.model)}" selected>${esc(c.model||'（手填的模型）')}</option>`}
-       </select>
-       <div class="hint">下拉里 ${ms.length} 个模型是这个 Key 现在<b>真的能用</b>的。选一个即可，不用背名字。</div>`
-    : `<input class="tin" data-ai="model" value="${esc(c.model)}" placeholder="deepseek-chat">
-       <div class="hint">还没拉到列表，先手填；点右边【拉取模型列表】可以自动填上。</div>`;
+       </select>`
+    : `<input class="tin" data-ai="model" value="${esc(c.model)}" placeholder="deepseek-chat">`;
   return `<div class="backrow"><button class="backbtn" data-act="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button></div>
     <div class="pagetitle">AI 服务配置</div>
     <div class="stack">
       <div class="grouptitle">服务商</div>
       ${PROVIDERS.map(p=>opt(p[0],p[1])).join('')}
       ${isB?`<div class="hint" style="background:#FEF3C7;color:#92400E;border-radius:10px;padding:10px">
-        内置通道要跟云服务一起开（<b>V0.3</b> 的事）。<br>在那之前，从下面三家挑一家填 Key，或者选<b>自定义</b>。</div>`:''}
+        内置通道已停用 · 请在下面三家或「自定义」中选一个，填自己的 Key</div>`:''}
       <div class="grouptitle">连接信息 · 三项</div>
       <div class="section">
         <div class="label">接口地址</div>
@@ -2222,7 +2198,6 @@ function aiHTML(){
         <input class="tin" type="password" data-ai="key" value="${esc(c.key)}" placeholder="填在这里 · 不明文存储">
         <div class="label">模型名称</div>
         ${modelBox}
-        <div class="hint">${esc(PRESET[c.provider]&&PRESET[c.provider].base?'选服务商会自动填好地址和默认模型，一般只贴 Key 就行':'自定义需要自己填这三项')} · 换服务商只改这三个框，功能不用重装</div>
         <div class="btnrow">
           <button class="btn ghost" data-act="aimodels">拉取模型列表</button>
           <button class="btn ghost" data-act="aitest">测试连接</button>
@@ -2230,25 +2205,20 @@ function aiHTML(){
         <button class="btn" data-act="aisave" style="margin-top:8px">${c.ok?'已启用 · 点此再保存一次':'保存并启用'}</button>
         ${c.msg?`<div class="hint" style="margin-top:8px;color:${c.ok?'#059669':'#DC2626'}">${esc(c.msg)}</div>`:''}
       </div>
-      ${c.ok?`<div class="hint" style="color:#059669">✓ 连接可用 · 上次测试 ${esc(c.testedAt)} —— 这个结果来自一次真实调用，不是缓存</div>`
-            :`<div class="hint" style="color:#DC2626">还没通过连接测试 —— 必须真实调用一次成功，才允许启用</div>`}
+      ${c.ok?`<div class="hint" style="color:#059669">✓ 连接可用 · 上次测试 ${esc(c.testedAt)}</div>`
+            :`<div class="hint" style="color:#DC2626">还没通过连接测试 —— 必须真实调用成功一次，才允许启用</div>`}
       <div class="grouptitle">连不上时看这里</div>
       <div class="section">
-        <div class="hint" style="padding:0">如果你的 Key 是从服务商官网正常申请的，先看这三条<b>已实测</b>的事实：<br>
-        · <b>DeepSeek</b>：实测允许网页直连，<b>接口地址带不带 /v1 都通</b>，模型列表也能拉到<br>
-        · <b>月之暗面 Kimi</b>：实测<b>不给跨域许可</b>，浏览器里连不上；手机 App 里可以用<br>
-        · <b>OpenAI / 自定义中转</b>：要看对方给不给跨域，给就能用<br><br>
-        三家都不受「怎么打开」影响（双击打开、本地预览都行）—— 不用纠结这个。
-        真出问题一般是：Key 粘漏了 / 过期了，或者接口地址抄错。<br>
-        <span style="font-size:12px;color:var(--ink3)">诊断顺序：先点【拉取模型列表】，能拉到就说明地址和 Key 都对，只是模型名没选对。</span></div>
+        <div class="hint" style="padding:0">
+        · <b>DeepSeek</b> 实测允许网页直连，地址带不带 <b>/v1</b> 都通<br>
+        · <b>Kimi</b> 实测不给跨域许可：浏览器连不上，手机 App 里可以<br>
+        · 先点【拉取模型列表】：能拉到就说明地址和 Key 都对，只是模型名没选对</div>
       </div>
       <div class="grouptitle">状态与清理</div>
       <div class="section">
-        <div class="hint" style="padding:0">Key 在源码里<b>一个字都没有</b>，落盘也做了混淆；导出备份、配置码<b>不含 Key</b>。<br>
-        ⚠️ 浏览器里没有真正的保险箱：混淆防的是「被人瞄一眼 / 文件转手」，防不住别人在你本机翻 —— 别把 Key 发群里、存网盘。</div>
+        <div class="hint" style="padding:0">Key 不明文存储，导出备份与配置码都不含它。⚠️ 浏览器里没有真正的保险箱 —— 别把 Key 发群里、存网盘。</div>
         <button class="btn ghost" data-act="aiclear" style="color:#DC2626;border-color:#FECACA;background:#FEF2F2">清除 Key 并停用 AI</button>
       </div>
-      <div class="hint">换服务商全过程 ≤ 1 分钟：选一家 → 三个框自动填好 → 只贴 Key → 测试连接 → 保存。没配 AI 时解析与复盘走<b>本机规则</b>，功能不缺、只是没那么聪明。</div>
     </div>`;
 }
 
@@ -2265,7 +2235,6 @@ function catsHTML(){
     <div class="pagetitle">分类管理</div>
     <div class="stack">
       ${sec('work','工作域')}${sec('life','生活域')}
-      <div class="hint">分类挂在域下，不可跨域 · 删除分类不删待办（<b>改为未分类</b>，不进收件箱）</div>
     </div>`;
 }
 
@@ -2348,10 +2317,7 @@ function cloudHTML(){
     <div class="pagetitle">云同步</div>
     <div class="stack">
       <div class="hint" style="padding:10px;background:var(--soft);border-radius:10px">
-        <b>先说清楚它是干什么的</b><br>
-        配好以后：这台改的，另一台打开就能看见；改动自动传，不用点按钮。<br>
-        <b>配不好也没关系</b> —— 没配、断网、后端挂了，App 一切照常，只是不同步。
-      </div>
+        配好后，这台改的另一台打开就能看见，自动传。没配 / 断网 / 后端挂了，App 一切照常，只是不同步。</div>
 
       <div class="grouptitle">用哪家的云</div>
       <div class="section">
@@ -2368,13 +2334,12 @@ function cloudHTML(){
           <button class="btn" data-act="csave">保存并开启</button>
         </div>
         <div class="btnrow">
-          <button class="btn ghost" data-act="csync">立刻同步一次</button>
+          <button class="btn ghost" data-act="csync">同步一次</button>
           <button class="btn ghost" data-act="ccode">导出配置码</button>
           <button class="btn ghost" data-act="cincode">导入配置码</button>
         </div>
         ${c.on?`<button class="btn ghost" style="margin-top:8px;color:#DC2626;border-color:#FECACA;background:#FEF2F2" data-act="cdisc">断开云同步</button>`:''}
-        <div class="hint" style="padding:0">口令只在你这台机器上算成一个 ID 再发出去，<b>口令本身永远不上传</b>；
-          密钥落盘是混淆的，导出的数据文件<b>不含它</b>。</div>
+        <div class="hint" style="padding:0">口令不上传（本机算成 ID 再发出去）· 密钥落盘混淆 · 导出文件不含它们</div>
         <button class="row" style="padding:10px 0;border:none;background:none;gap:10px" data-act="cenctoggle">
           <span class="radio" style="position:static;width:20px;height:20px;flex:none;
             border:2px solid ${CLOUD.encOn(c)?'var(--brand)':'var(--line)'};background:${CLOUD.encOn(c)?'var(--brand)':'transparent'};
@@ -2384,9 +2349,9 @@ function cloudHTML(){
         </button>
         ${CLOUD.encOn(c)
           ? (c.pwd
-            ? '<div class="hint" style="padding:0">用你的同步口令在这台机器上派生密钥，<b>云端存的是密文</b>；口令和密钥都不上传、不进备份。</div>'
-            : '<div class="hint" style="padding:0;color:#B45309">已勾选，但<b>还没填同步口令</b> —— 口令是派生密钥的原料，填上之后才真的开始加密。</div>')
-          : '<div class="hint" style="padding:0">关掉了 —— 云端会存明文。想加密随时能再打开。</div>'}
+            ? '<div class="hint" style="padding:0">云端存的是密文 · 口令和密钥都不上传、不进备份</div>'
+            : '<div class="hint" style="padding:0;color:#B45309">已勾选，但<b>还没填同步口令</b> —— 填上之后才真的开始加密</div>')
+          : '<div class="hint" style="padding:0">关掉了 · 云端会存明文</div>'}
       </div>
 
       <div class="grouptitle">当前状态</div>
@@ -2399,35 +2364,31 @@ function cloudHTML(){
 
       <div class="grouptitle">另一台设备怎么接</div>
       <div class="section">
-        <div class="hint" style="padding:0">一台设备【导出配置码】→ 另一台【导入配置码】，粘进去就配好了 ——
-          地址、密钥、桶名、地域、口令<b>一起带过去</b>，不用一项一项填。<br>
-          ${isCOS?'':'两家的配置会一起带过去，到了那边想用哪家都行。'}<br>
-        ⚠️ <b style="color:#DC2626">配置码等于你家钥匙</b> —— 别发群、别存网盘。</div>
+        <div class="hint" style="padding:0">这台【导出配置码】→ 另一台【导入配置码】，地址 / 密钥 / 口令一次带过去。<br>
+          ⚠️ <b style="color:#DC2626">配置码等于钥匙</b> —— 别发群、别存网盘。</div>
       </div>
 
       <div class="grouptitle">${isCOS?'用 COS 前要做的三件事':'后端还没建表？照抄这四段'}</div>
       <div class="section">
         ${isCOS
         ? `<div class="hint" style="padding:0">
-              · 建一个<b>私有</b>存储桶 —— 桶名要<b>连后面那串数字一起</b>填进来（例：<code>todo-1250000000</code>）<br>
-              · 在桶的<b>跨域访问（CORS）</b>里加一条：来源 <code>*</code>、方法勾 <code>GET / PUT / HEAD</code>、Allow-Headers 填 <code>*</code><br>
-              · 拿一对<b>子账号</b>的 SecretId / SecretKey —— 别用主账号的，主账号权限太大<br>
-              <span style="font-size:12px;color:var(--ink3)">每一步怎么点，项目里有图文说明：<b>docs/腾讯云COS怎么用.md</b></span></div>`
+              · 建一个<b>私有</b>桶，桶名<b>连后面那串数字一起</b>填（例：<code>todo-1250000000</code>）<br>
+              · 桶的<b>跨域（CORS）</b>加一条：来源 <code>*</code>、方法 <code>GET / PUT / HEAD</code>、Allow-Headers <code>*</code><br>
+              · 用<b>子账号</b>的 SecretId / SecretKey，别用主账号<br>
+              <span style="font-size:12px;color:var(--ink3)">图文步骤见 <b>docs/腾讯云COS怎么用.md</b></span></div>`
         : `<pre style="white-space:pre-wrap;font-size:11px;line-height:1.6;background:var(--soft);padding:10px;border-radius:8px;margin:0;color:var(--ink2)">${esc(SQL_SETUP)}</pre>
         <button class="btn ghost" data-act="csql">复制建表脚本</button>
-        <div class="hint" style="padding:0">去后端的 SQL 编辑器里<b>一次粘一段</b>跑完（四段：建表 → 开行级安全 → 建策略 → 授权）。<br>
-          ⚠️ 只填<b>权限最小</b>的那把钥匙：Supabase 上叫 <b>publishable key</b>（<code>sb_publishable_…</code>，老的 <code>eyJ…</code> 也行）。<br>
-          <b style="color:#DC2626">千万别填 sb_secret_… / service_role</b> —— 它能绕过所有限制，而 App 是可以被反编译的。<br>
-          如果报"表还不存在"：Supabase 刚建完表要等半分钟刷新缓存，或去 <b>Integrations → Data API</b> 里把 <code>todo_state</code> 勾上暴露。</div>`}
+        <div class="hint" style="padding:0">在后端 SQL 编辑器里一次粘一段跑完（建表 → 行级安全 → 策略 → 授权）。<br>
+          ⚠️ 只填 <b>publishable key</b>（<code>sb_publishable_…</code> 或老式 <code>eyJ…</code>）。<br>
+          <b style="color:#DC2626">千万别填 sb_secret_… / service_role</b> —— 它能绕过所有限制，而 App 可被反编译。</div>`}
       </div>
 
       <div class="grouptitle">连不上先查这三条</div>
       <div class="section">
         <div class="hint" style="padding:0">
-          · <b>请求没发出去</b>：这个后端不给跨域许可（要返回 <code>Access-Control-Allow-Origin: *</code>），或地址填错了<br>
-          · <b>密钥不对</b>：粘贴时少了字符，或这把钥匙没有这张表的权限<br>
-          · <b>表还没建</b>：地址是通的，缺上面那三段 SQL<br>
-          <span style="font-size:12px;color:var(--ink3)">双击打开本地文件、手机 App 里都是能同步的 —— 只要后端肯给跨域。</span></div>
+          · <b>请求没发出去</b>：后端不给跨域许可（要返回 <code>Access-Control-Allow-Origin: *</code>），或地址填错<br>
+          · <b>密钥不对</b>：粘漏了字符，或这把钥匙没有这张表的权限<br>
+          · <b>表还没建</b>：地址是通的，缺上面那几段 SQL</div>
       </div>
     </div>`;
 }
@@ -2600,8 +2561,9 @@ function doExport(){
 function fabHTML(){
   const phone=document.getElementById('phone');
   if(S.tab==='note'){
+    const n=inboxTodos().length;                 /* 空的时候不挂红色「0」角标：没东西要整理就别提醒 */
     const b=document.createElement('button');
-    b.className='fab badge'; b.dataset.n=inboxTodos().length; b.dataset.act='inbox'; b.title='收件箱';
+    b.className='fab'+(n?' badge':''); b.dataset.n=n; b.dataset.act='inbox'; b.title='收件箱';
     b.innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M3 12h5l2 3h4l2-3h5"/><path d="M5 5h14l2 7v7H3v-7z"/></svg>';
     phone.appendChild(b);
   }
@@ -2688,7 +2650,7 @@ function openQuad(curImp,curUrg,cb){
       <span class="qlab qlab-l">← 不急</span>
       <span class="qlab qlab-r">紧急 →</span>
     </div>
-    <div class="hint">横轴 = 紧不紧急，纵轴 = 重不重要。选好就写进「重要 / 紧急」两个值；列表里只显示颜色、不写字。</div>
+    <div class="hint">横轴 = 紧不紧急 · 纵轴 = 重不重要</div>
     <button class="btn ghost" data-act="qpick" data-v="">清除判断（回到未判断）</button>
     <button class="btn ghost" data-act="closemodal">取消</button></div>`;
   p.appendChild(d);
@@ -3743,7 +3705,10 @@ window.__androidBack = function(){
     if(d.lastPurge) DB.lastPurge=d.lastPurge;
     todos.forEach(t=>{ if(!t.manual) t.manual={}; if(t.createdAt==null) t.createdAt=nowStamp(); });
   }else{
-    todos=seed(); DB.save();
+    /* V0.4 交付版：**新装 App 就是空的**，不再预塞十几条示例数据 ——
+       那些只是开发期为了看效果做的演示数据，会让人以为是自己不小心存的。
+       演示用的种子数据仍留在 seed() 里，测试脚本需要时自己调它。 */
+    todos=[]; DB.save();
   }
   const n=new Date();
   S.calY=n.getFullYear(); S.calM=n.getMonth();

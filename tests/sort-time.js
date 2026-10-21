@@ -65,7 +65,10 @@ const shift = n => app.fmtD(new Date(new Date(app.TODAY+'T00:00:00').getTime()+n
 
   console.log('\n【7】文案：退出聚焦的按钮改叫「返回」');
   app.S.focused = true;                       /* 这个按钮只在聚焦态（A2）才出现 */
-  ok('聚焦态按钮文案是「返回」', /data-act="cancel">返回</.test(app.noteHTML()));
-  ok('页面提示里也跟着改了', /【返回】/.test(app.noteHTML()));
-  ok('旧的「再改改」已经没有残留', app.noteHTML().indexOf('再改改')<0);
+  const nh = app.noteHTML();
+  ok('聚焦态按钮文案是「返回」', /data-act="cancel">返回</.test(nh));
+  ok('旧的「再改改」已经没有残留', nh.indexOf('再改改')<0);
+  /* V0.4 交付版起不再用一行灰色小字解释「点返回 / 点框外 / 按 Esc」怎么用，按钮自己写得清
+     楚就够了 —— 这里反过来看一眼，保证没把那一串说明又塞回来。 */
+  ok('没有再挂解释按钮用法的小字', !/点【返回】或框外任意处退出/.test(nh));
 })();

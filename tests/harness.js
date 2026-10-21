@@ -53,7 +53,17 @@ module.exports = function load(){
        + 'CLOUD,SYNC,DEVID,SQL_SETUP,copyText,cloudHTML,meHTML,'
        + 'sortList,dayHTML,itemHTML,listTodos,quadText,'
        /* V0.4 发版审查新增的导出：titleOf 兜底 / newId 发号 / catStyle 跨设备稳定 / 日期选择器年份 */
-       + 'T,newId,titleOf,catStyle,catHash,openDatePicker,THEME_KEY,DEF_THEME};';
+       + 'T,newId,titleOf,catStyle,catHash,openDatePicker,THEME_KEY,DEF_THEME,seed,firstGuideHTML};';
   vm.runInThisContext(code, {filename:'inline.js'});
-  return globalThis.__app;
+  /* V0.4 交付版起，新装应用是**空的**（不再预塞演示数据）。
+     但测试脚本需要一个「已经用过一阵」的状态才测得动（排序 / 渲染 / 复盘都依赖有数据），
+     所以在这里统一灌一份种子数据 —— 各个测试文件一行都不用改。 */
+  const A = globalThis.__app;
+  try{
+    if(A && Array.isArray(A.todos) && !A.todos.length){
+      A.seed().forEach(t=>A.todos.push(t));
+      try{ A.dbSave(); }catch(e){}
+    }
+  }catch(e){}
+  return A;
 };
