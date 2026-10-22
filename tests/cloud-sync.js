@@ -159,6 +159,46 @@ global.fetch = async (url, opt) => {
   ok('云同步配置页能渲染', String(app.cloudHTML()).indexOf('云同步') > 0);
   ok('「我的」页能渲染', String(app.meHTML()).indexOf('云同步') > 0);
 
+  /* 11. 【保存并开启】的弹窗必须有收尾（2026-10-22 修）
+     以前成功之后只弹 toast，「正在开启…」那张弹窗一直挂在屏上不换不掉 */
+  const click = (act) => {
+    const el = { dataset: { act }, closest() { return el; } };
+    return app.handleAct({ target: { closest() { return el; } } });
+  };
+  const lastModal = () => {
+    const kids = global.document.getElementById('phone').children;
+    const masks = kids.filter(k => String(k.className || '').indexOf('modal-mask') >= 0);
+    return masks.length ? String(masks[masks.length - 1].innerHTML) : '';
+  };
+
+  // ① 连通 + 首次同步成功 → 弹窗要变成「已开启」
+  MODE = 'empty';
+  SYNC.cfg = { on:false, kind:'supabase', pwd:'pwd', space:'', at:'', fp:'', enc:true,
+    supabase:{ base:'https://x.supabase.co', key:'k' },
+    cos:{ bucket:'', region:'ap-guangzhou', secretId:'', key:'' } };
+  remoteRow = null;
+  click('csave');
+  await new Promise(r => setTimeout(r, 120));
+  let m = lastModal();
+  ok('连通并同步成功 → 弹窗换成了「已开启」', m.indexOf('云同步已开启') >= 0 && m.indexOf('正在开启') < 0,
+     (m.match(/<div class="modal-t">([^<]*)/) || [, ''])[1]);
+
+  // ② 连不上 → 弹窗要变成「没能开启」，不能停在「正在开启」
+  MODE = 'keyless';
+  SYNC.cfg.on = false; SYNC.cfg.pwd = 'pwd';
+  click('csave');
+  await new Promise(r => setTimeout(r, 120));
+  m = lastModal();
+  ok('连不上 → 弹窗换成了「没能开启」', m.indexOf('没能开启') >= 0 && m.indexOf('正在开启') < 0,
+     (m.match(/<div class="modal-t">([^<]*)/) || [, ''])[1]);
+
+  // ③ 测试连接那一路也不能卡在「正在测试连接…」
+  click('ctest');
+  await new Promise(r => setTimeout(r, 120));
+  m = lastModal();
+  ok('测试连接失败 → 弹窗换成了「连不上」', m.indexOf('连不上') >= 0 && m.indexOf('正在测试连接') < 0,
+     (m.match(/<div class="modal-t">([^<]*)/) || [, ''])[1]);
+
   SYNC.clear();
   console.log('\n  合计 ' + pass + ' 项通过' + (fail ? '，' + fail + ' 项失败' : '') + '\n');
   process.exit(fail ? 1 : 0);

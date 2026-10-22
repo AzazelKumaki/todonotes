@@ -25,7 +25,7 @@ function refSign(secretKey, method, path, host, signTime) {
 const cfg = {
   kind: 'cos', pwd: '我的口令',
   supabase: { base: '', key: '' },
-  cos: { bucket: 'todo-1250000000', region: 'ap-guangzhou',
+  cos: { bucket: 'daiban-1250000000', region: 'ap-guangzhou',
          secretId: 'AKIDTestId0000000000000000000', key: 'TestSecretKey000000000000000' }
 };
 const SID = 'abcDEF_-123';
@@ -36,7 +36,7 @@ const PATH = CLOUD.cosPath(SID);
   console.log('\n=== V0.3 腾讯云 COS + 两家密钥隔离 ===\n');
 
   console.log('【1】签名');
-  ok('桶域名拼对了', HOST === 'todo-1250000000.cos.ap-guangzhou.myqcloud.com', HOST);
+  ok('桶域名拼对了', HOST === 'daiban-1250000000.cos.ap-guangzhou.myqcloud.com', HOST);
   ok('对象路径带前缀、且转义过', PATH.indexOf('/daiban/') === 0 && PATH.indexOf(SID) > 0, PATH);
   for (const m of ['get', 'put']) {
     const auth = await CLOUD.cosAuth(cfg, m, PATH);
@@ -77,7 +77,7 @@ const PATH = CLOUD.cosPath(SID);
   console.log('\n【4】两种后端各查各的');
   SYNC.cfg = blank();
   SYNC.cfg.kind = 'cos';
-  SYNC.cfg.cos = { bucket:'todo-1250000000', region:'ap-guangzhou', secretId:'x', key:'y' };
+  SYNC.cfg.cos = { bucket:'daiban-1250000000', region:'ap-guangzhou', secretId:'x', key:'y' };
   SYNC.cfg.pwd = 'p';
   ok('COS：桶+密钥+口令齐了才算填完', SYNC.filled() === true);
   SYNC.cfg.cos.bucket = '';
@@ -95,7 +95,7 @@ const PATH = CLOUD.cosPath(SID);
   h = app.cloudHTML();
   ok('切到 COS：页面上不出现 Supabase 的 Key', h.indexOf('SUPABASE-KEY-123') < 0);
   ok('切到 COS：显示的是 COS 自己的四个框', /data-cf="cos\.key"/.test(h) && !/data-cf="supabase\.key"/.test(h));
-  SYNC.cfg.cos = { bucket:'todo-1250000000', region:'ap-guangzhou', secretId:'AK', key:'COS-SECRET-456' };
+  SYNC.cfg.cos = { bucket:'daiban-1250000000', region:'ap-guangzhou', secretId:'AK', key:'COS-SECRET-456' };
   SYNC.cfg.kind = 'supabase';
   h = app.cloudHTML();
   ok('切回 Supabase：页面上不出现 COS 的密钥', h.indexOf('COS-SECRET-456') < 0);
@@ -106,7 +106,7 @@ const PATH = CLOUD.cosPath(SID);
   SYNC.cfg.kind = 'cos';
   SYNC.cfg.pwd = 'PP-口令';
   SYNC.cfg.supabase = { base:'https://a.supabase.co', key:'K-SUPA' };
-  SYNC.cfg.cos = { bucket:'todo-1250000000', region:'ap-shanghai', secretId:'AKID-COSTEST', key:'K-COS' };
+  SYNC.cfg.cos = { bucket:'daiban-1250000000', region:'ap-shanghai', secretId:'AKID-COSTEST', key:'K-COS' };
   SYNC.save();
   const raw = JSON.parse(localStorage.getItem('todo.sync.v1'));
   ok('落盘：两家的密钥分开存', !!raw.supabase && !!raw.cos && raw.supabase.key !== raw.cos.key);
@@ -117,7 +117,7 @@ const PATH = CLOUD.cosPath(SID);
   SYNC.load();
   ok('重开后：Supabase 的 Key 还在', SYNC.cfg.supabase.key === 'K-SUPA', SYNC.cfg.supabase.key);
   ok('重开后：COS 的密钥还在', SYNC.cfg.cos.key === 'K-COS', SYNC.cfg.cos.key);
-  ok('重开后：桶名和地域都在', SYNC.cfg.cos.bucket === 'todo-1250000000' && SYNC.cfg.cos.region === 'ap-shanghai');
+  ok('重开后：桶名和地域都在', SYNC.cfg.cos.bucket === 'daiban-1250000000' && SYNC.cfg.cos.region === 'ap-shanghai');
   ok('重开后：口令还在（不用重填）', SYNC.cfg.pwd === 'PP-口令');
 
   console.log('\n【7】老版本扁平存的数据自动搬过来');
@@ -131,7 +131,7 @@ const PATH = CLOUD.cosPath(SID);
 
   console.log('\n【8】★ 空密钥不能抛看不懂的原生错误（用户遇到的 HMAC 报错）');
   const emptyCos = { kind:'cos', pwd:'p', supabase:{base:'',key:''},
-                     cos:{bucket:'todo-1250000000', region:'ap-guangzhou', secretId:'', key:''} };
+                     cos:{bucket:'daiban-1250000000', region:'ap-guangzhou', secretId:'', key:''} };
   await CLOUD.cosAuth(emptyCos, 'get', '/x.json').then(() => ok('空密钥 → 拦住', false))
     .catch(e => ok('空密钥 → 拦住并说人话', e.message === 'EMPTY', CLOUD.why(e.message)));
   const miss = CLOUD.missing(emptyCos);
@@ -149,11 +149,11 @@ const PATH = CLOUD.cosPath(SID);
   SYNC.cfg = blank();
   SYNC.cfg.kind = 'cos'; SYNC.cfg.pwd = 'PP';
   SYNC.cfg.supabase = { base:'https://a.supabase.co', key:'K-SUPA' };
-  SYNC.cfg.cos = { bucket:'todo-1250000000', region:'ap-shanghai', secretId:'AKID-COSTEST', key:'K-COS' };
+  SYNC.cfg.cos = { bucket:'daiban-1250000000', region:'ap-shanghai', secretId:'AKID-COSTEST', key:'K-COS' };
   const code2 = SYNC.code();
   SYNC.cfg = blank();
   SYNC.applyCode(code2);
-  ok('导入后 COS 那份在', SYNC.cfg.cos.key === 'K-COS' && SYNC.cfg.cos.bucket === 'todo-1250000000');
+  ok('导入后 COS 那份在', SYNC.cfg.cos.key === 'K-COS' && SYNC.cfg.cos.bucket === 'daiban-1250000000');
   ok('导入后 Supabase 那份**也在**（两家一起带过去了）',
     SYNC.cfg.supabase.key === 'K-SUPA' && SYNC.cfg.supabase.base === 'https://a.supabase.co');
   ok('导入后口令在', SYNC.cfg.pwd === 'PP');
@@ -162,13 +162,13 @@ const PATH = CLOUD.cosPath(SID);
   console.log('\n【10】配置码带上 COS 的信息');
   SYNC.cfg = blank();
   SYNC.cfg.kind = 'cos';
-  SYNC.cfg.cos = { bucket:'todo-1250000000', region:'ap-shanghai', secretId:'AK1', key:'SK1' };
+  SYNC.cfg.cos = { bucket:'daiban-1250000000', region:'ap-shanghai', secretId:'AK1', key:'SK1' };
   SYNC.cfg.pwd = 'pwd1';
   const code = SYNC.code();
   SYNC.cfg = blank();
   SYNC.applyCode(code);
   ok('导入后桶/地域/密钥都在',
-    SYNC.cfg.cos.bucket === 'todo-1250000000' && SYNC.cfg.cos.region === 'ap-shanghai' &&
+    SYNC.cfg.cos.bucket === 'daiban-1250000000' && SYNC.cfg.cos.region === 'ap-shanghai' &&
     SYNC.cfg.cos.secretId === 'AK1' && SYNC.cfg.cos.key === 'SK1');
 
   console.log('\n【COS 的 404 不许再套用 Supabase 的文案】（2026-10-22 修）');
@@ -190,7 +190,7 @@ const PATH = CLOUD.cosPath(SID);
   ok('读取撞 404 仍算正常（文件还没建）', get === null, JSON.stringify(get));
 
   ok('界面能拿到实际访问地址（COS 由桶名+地域拼出）',
-    CLOUD.at(cfg).indexOf('https://todo-1250000000.cos.ap-guangzhou') === 0 &&
+    CLOUD.at(cfg).indexOf('https://daiban-1250000000.cos.ap-guangzhou') === 0 &&
     CLOUD.at(cfg).indexOf('/daiban/') > 0, CLOUD.at(cfg));
 
   console.log('\n  合计 ' + pass + ' 项通过' + (fail ? '，' + fail + ' 项失败' : '') + '\n');

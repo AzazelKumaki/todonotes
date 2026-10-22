@@ -833,7 +833,7 @@ const CLOUD={
     CONFLICT:'两边都改过，得先选一边',
     HTTP404:'地址不对，找不到接口 —— 服务地址要填到 <code>/rest/v1</code> 那一层（Supabase 后台 → Project Settings → Data API）',
     COS404:'桶里没有这个文件 / 找不到桶 —— 腾讯云 COS <b>不用填地址</b>，地址是「桶名 + 地域」拼出来的。'
-          +'先核对这两样：① 桶名要<b>连后面那串数字一起</b>（例 <code>todo-1250000000</code>）② 地域选的是不是这个桶所在的地域',
+          +'先核对这两样：① 桶名要<b>连后面那串数字一起</b>（例 <code>daiban-1250000000</code>）② 地域选的是不是这个桶所在的地域',
     COS403:'签名没通过 —— 密钥不对，或者这个子账号没有这个桶的权限',
     KEYCHAR:'密钥里有中文或全角符号 —— HTTP 头放不下它。重新粘贴一遍，注意别带上空格',
     EMPTY:'还有必填的没填 —— 填完再测',
@@ -2319,7 +2319,7 @@ function cloudHTML(){
   const inp=(p,label,ph,type)=>`<div class="label">${label}</div>
     <input class="tin" type="${type||'text'}" value="${esc(get(p)||'')}" placeholder="${ph}" data-cf="${p}">`;
   const kindBtn=(v,label)=>`<button class="opt ${c.kind===v?'on':''}" data-act="ckind" data-v="${v}"><span class="radio"></span><span>${label}</span></button>`;
-  const cosFields = inp('cos.bucket','存储桶名称','todo-1250000000')
+  const cosFields = inp('cos.bucket','存储桶名称','daiban-1250000000')
     + `<div class="label">地域</div><select class="tin" data-cf="cos.region">`
     + COS_REGIONS.map(r=>`<option value="${r[0]}" ${c.cos.region===r[0]?'selected':''}>${r[1]}</option>`).join('')
     + `</select>`
@@ -2389,7 +2389,7 @@ function cloudHTML(){
       <div class="section">
         ${isCOS
         ? `<div class="hint" style="padding:0">
-              · 建一个<b>私有</b>桶，桶名<b>连后面那串数字一起</b>填（例：<code>todo-1250000000</code>）<br>
+              · 建一个<b>私有</b>桶，桶名<b>连后面那串数字一起</b>填（例：<code>daiban-1250000000</code>）<br>
               · 桶的<b>跨域（CORS）</b>加一条：来源 <code>*</code>、方法 <code>GET / PUT / HEAD</code>、Allow-Headers <code>*</code><br>
               · 用<b>子账号</b>的 SecretId / SecretKey，别用主账号<br>
               <span style="font-size:12px;color:var(--ink3)">图文步骤见 <b>docs/腾讯云COS怎么用.md</b></span></div>`
@@ -3499,21 +3499,38 @@ function handleAct(e){
     CLOUD.test(c).then(r=>{
       if(r.ok) modal('连接成功 ✓',`<b>${esc(r.msg)}</b><br><br>这次结果来自一次真实的读写调用，不是猜的。<br>现在可以点【保存并开启】了。${cloudDiag(r)}`);
       else modal('连不上',`${r.msg}${cloudDiag(r)}`);
-    });
+    }).catch(e=>{ modal('连不上','这一步出错了：'+esc(String((e&&e.message)||e))); });
     return;
   }
   if(act==='csave'){
     const c=SYNC.cfg;
     if(!SYNC.filled()){ toast('连接信息还差一样，填完再开'); return; }
     modal('正在开启…','先测得通，才允许开启');
+    /* ⚠️ 每一步都要把「正在开启…」换成结果（2026-10-22 修）：
+       以前只有失败那条路会换弹窗，成功之后只弹了个 toast、弹窗却一直挂在屏上，
+       看着就像卡在「正在开启…」不动了。现在三态都给交代：
+       连不上 → 没能开启 / 连通且首次同步成功 → 已开启 ✓ / 连通但同步没成 → 已开启但有说明。 */
     CLOUD.test(c).then(async r=>{
       if(!r.ok){ modal('没能开启', r.msg+cloudDiag(r)); return; }
       c.on=true; c.space=''; SYNC.save();
       SYNC.say('wait','已开启 · 正在第一次同步');
       render();
-      const res=await SYNC.run({manual:true});
-      toast(res.ok?'云同步已开启 ✓':'已开启，但第一次同步没成功');
+      let res;
+      try{ res=await SYNC.run({manual:true}); }
+      catch(e){ res={ok:false, reason:String((e&&e.message)||e)}; }
+      if(res.ok){
+        modal('云同步已开启 ✓',
+          '第一次同步也完成了 —— 这台改的，另一台打开就能看见。<br><br>'+
+          '状态栏会显示下次同步的时间；改动攒 1.2 秒后自动传，不用点按钮。');
+      }else{
+        modal('已开启 · 但第一次同步没成',
+          '配置是通的，先这么用着 —— 改动都还在本机，联网后会自动补传。<br><br>'+
+          '状态栏：<b>'+esc(SYNC.st.msg||'待重试')+'</b>'+
+          (res.reason?'<br><span style="font-size:12px;color:var(--ink3)">原因：'+esc(String(res.reason))+'</span>':''));
+      }
       render();
+    }).catch(e=>{
+      modal('没能开启', '这一步出错了：'+esc(String((e&&e.message)||e)));
     });
     return;
   }
