@@ -635,6 +635,11 @@ const CLOUD={
        所以只有老式 JWT 密钥（eyJ 开头）才补 Bearer 头。 */
     if(/^eyJ/.test(k)) h['Authorization']='Bearer '+k;
     return h; },
+  /* 这一家实际会去访问的地址 —— 显示给人看，方便核对桶名 / 地域 / 服务地址填对没 */
+  at(cfg){ return CLOUD.isCOS(cfg)
+      ? 'https://'+CLOUD.cosHost(cfg)+'/daiban/<你的口令派生出的文件名>.json'
+      : CLOUD.url(cfg); },
+
   /* ---------- V0.4 FR-405：上传前用同步口令派生密钥加密 ----------
      ① 只用浏览器自带的 WebCrypto（AES-GCM + PBKDF2），不引第三方库
      ② 密钥由**同步口令**在本机派生，口令和密钥都不上云、不进日志、不进备份
@@ -715,7 +720,7 @@ const CLOUD={
       headers:{authorization:await CLOUD.cosAuth(cfg,'get',path)}});
     if(r.status===404) return null;                        /* 还没传过 —— 正常，不是错误 */
     if(r.status===403) throw new Error('KEY');
-    if(r.status>=400) throw new Error('HTTP'+r.status);
+    if(r.status>=400) throw new Error(CLOUD.cosErr(r.status));   /* COS 的错误码另有一套说法 */
     const p=r.body||{};
     return {space_id:sid, payload:(p.payload||p), updated_at:p.updatedAt||''};
   },
@@ -728,16 +733,29 @@ const CLOUD={
       headers:{authorization:await CLOUD.cosAuth(cfg,'put',path),'Content-Type':'application/json'},
       body});
     if(r.status===403) throw new Error('KEY');
-    if(r.status>=400) throw new Error('HTTP'+r.status);
+    if(r.status>=400) throw new Error(CLOUD.cosErr(r.status));
     return {space_id:sid, payload, updated_at:at};
   },
+
+  /* 最后一次真实请求的地址与状态码 —— 报错时把它显示在界面上。
+     COS 是不让你填地址的（地址由「桶名 + 地域」拼出来），真出问题时不把拼出来的地址给人看，
+     就只能靠猜：到底是桶名错了还是地域选错了。 */
+  _url:'', _st:0,
+  /* COS 的 404 / 403 跟 Supabase 完全是两回事：
+     COS 不让你填地址，域名是「桶名 + 地域」拼出来的 —— 所以 404 的真实含义是
+     **桶名填错 / 桶不存在 / 地域选错**，不是「少了 /rest/v1」。
+     以前这里抛的是 'HTTP404'，被 why() 命中 Supabase 那条文案，于是腾讯云用户
+     看到「地址不对，找不到接口」这种跟他填的东西完全无关的提示（2026-10-22 修）。 */
+  cosErr(st){ return st===404 ? 'COS404' : (st===403 ? 'KEY' : ('HTTP'+st)); },
 
   /* 所有对外请求都过这道门：统一超时 + 统一把 fetch 的 TypeError 翻成人话 */
   async req(url,opt,ms){
     const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(),ms||CLOUD.TIMEOUT);
+    CLOUD._url=url; CLOUD._st=0;
     try{
       const r=await fetch(url,Object.assign({signal:ctl.signal},opt));
       const text=await r.text();
+      CLOUD._st=r.status;
       let body=null; try{ body=text?JSON.parse(text):null; }catch(e){}
       return {status:r.status, body, text};
     } catch(e){
@@ -803,8 +821,9 @@ const CLOUD={
     const miss=CLOUD.missing(cfg);
     if(miss.length) return {ok:false, code:'EMPTY', msg:'还差：'+miss.join('、')};
     try{ await CLOUD.getRow(cfg,'__probe__'+CLOUD.hash32(String(Date.now())));
-         return {ok:true, msg:'连接成功 · 地址通、也能读写'}; }
-    catch(e){ return {ok:false, code:e.message, msg:CLOUD.why(e.message)}; }
+         return {ok:true, msg:'连接成功 · 地址通、也能读写', at:CLOUD.at(cfg)}; }
+    catch(e){ return {ok:false, code:e.message, msg:CLOUD.why(e.message),
+                      at:CLOUD.at(cfg), http:CLOUD._st||0}; }
   },
   why(c){ return ({
     CORS:'请求根本没发出去 —— 多半是这个后端不给跨域许可（要返回 Access-Control-Allow-Origin: *），也可能是地址填错了',
@@ -812,7 +831,10 @@ const CLOUD={
     KEY:'密钥不对，或者这个密钥没有这张表的权限',
     TABLE:'地址是通的，但**表还没建** —— 去后端跑一下建表脚本（本页底部有）',
     CONFLICT:'两边都改过，得先选一边',
-    HTTP404:'地址不对，找不到接口（一般是少了 /rest/v1）',
+    HTTP404:'地址不对，找不到接口 —— 服务地址要填到 <code>/rest/v1</code> 那一层（Supabase 后台 → Project Settings → Data API）',
+    COS404:'桶里没有这个文件 / 找不到桶 —— 腾讯云 COS <b>不用填地址</b>，地址是「桶名 + 地域」拼出来的。'
+          +'先核对这两样：① 桶名要<b>连后面那串数字一起</b>（例 <code>todo-1250000000</code>）② 地域选的是不是这个桶所在的地域',
+    COS403:'签名没通过 —— 密钥不对，或者这个子账号没有这个桶的权限',
     KEYCHAR:'密钥里有中文或全角符号 —— HTTP 头放不下它。重新粘贴一遍，注意别带上空格',
     EMPTY:'还有必填的没填 —— 填完再测',
     NET_DNS:'域名解析不到 —— 检查存储桶名（要带后面那串数字）和地域选对了没',
@@ -2245,6 +2267,18 @@ function autoProbe(kind){
   }
 }
 
+/* 连不上时最有价值的两样信息：**实际访问的是哪个地址**、**对方回了什么状态码**。
+   COS 是不让你填地址的，地址由「桶名 + 地域」拼出来 —— 不把它显示出来，
+   就只能靠猜到底是桶名错了还是地域选错了（2026-10-22 加）。 */
+function cloudDiag(r){
+  if(!r) return '';
+  const at=r.at?String(r.at):'';
+  const st=r.http?(' · HTTP '+r.http):'';
+  return `<br><br><div style="font-size:12px;line-height:18px;color:var(--ink3)">
+    实际访问：${esc(at)}${st}${r.code?' · 返回码 '+esc(String(r.code)):''}
+  </div>`;
+}
+
 /* ============ C4 云同步（V0.3 · 通道 A：自带后端）============
    三样东西：服务地址 / 密钥 / 同步口令。填完点【测试连接】，通过才给开启。
    它是锦上添花：**没它 App 照常用**，最多在下面看到一行状态。 */
@@ -2320,6 +2354,8 @@ function cloudHTML(){
           <button class="btn ghost" data-act="cincode">导入配置码</button>
         </div>
         ${c.on?`<button class="btn ghost" style="margin-top:8px;color:#DC2626;border-color:#FECACA;background:#FEF2F2" data-act="cdisc">断开云同步</button>`:''}
+        <div class="hint" style="padding:0">${isCOS?'访问地址 = 桶名 + 地域自动拼出（不用填）':'访问地址 = 服务地址 + /rest/v1'}<br>
+          <span style="font-size:11px;word-break:break-all">${esc(CLOUD.at(c))}</span></div>
         <div class="hint" style="padding:0">口令不上传（本机算成 ID 再发出去）· 密钥落盘混淆 · 导出文件不含它们</div>
         <button class="row" style="padding:10px 0;border:none;background:none;gap:10px" data-act="cenctoggle">
           <span class="radio" style="position:static;width:20px;height:20px;flex:none;
@@ -2337,9 +2373,9 @@ function cloudHTML(){
 
       <div class="grouptitle">当前状态</div>
       <div class="section">
-        <div class="hint" style="padding:0;color:${stateColor[st.state]||'var(--ink3)'}">${esc(st.msg||'还没开启')}${
+        <div class="hint" style="padding:0;color:${stateColor[st.state]||'var(--ink3)'}">${st.msg||'还没开启'}${
           st.last?`<br><span style="color:var(--ink3)">上次：${esc(st.last)}</span>`:''}</div>
-        ${st.state==='err'?`<div class="hint" style="padding:8px;background:#FEF2F2;border-radius:8px;color:#B91C1C">${esc(st.msg)}</div>`:''}
+        ${st.state==='err'?`<div class="hint" style="padding:8px;background:#FEF2F2;border-radius:8px;color:#B91C1C">${st.msg}</div>`:''}
         ${st.state==='conflict'?`<button class="btn" style="margin-top:8px" data-act="cfix">处理冲突 · 选以哪边为准</button>`:''}
       </div>
 
@@ -3461,8 +3497,8 @@ function handleAct(e){
     if(!SYNC.filled()){ toast('上面的连接信息都填了才测'); return; }
     modal('正在测试连接…','正在真读写一次，请稍等…');
     CLOUD.test(c).then(r=>{
-      if(r.ok) modal('连接成功 ✓',`<b>${esc(r.msg)}</b><br><br>这次结果来自一次真实的读写调用，不是猜的。<br>现在可以点【保存并开启】了。`);
-      else modal('连不上',`${esc(r.msg)}<br><br><span style="font-size:12px;color:var(--ink3)">后端返回码：${esc(r.code)}</span>`);
+      if(r.ok) modal('连接成功 ✓',`<b>${esc(r.msg)}</b><br><br>这次结果来自一次真实的读写调用，不是猜的。<br>现在可以点【保存并开启】了。${cloudDiag(r)}`);
+      else modal('连不上',`${r.msg}${cloudDiag(r)}`);
     });
     return;
   }
@@ -3471,7 +3507,7 @@ function handleAct(e){
     if(!SYNC.filled()){ toast('连接信息还差一样，填完再开'); return; }
     modal('正在开启…','先测得通，才允许开启');
     CLOUD.test(c).then(async r=>{
-      if(!r.ok){ modal('没能开启', esc(r.msg)); return; }
+      if(!r.ok){ modal('没能开启', r.msg+cloudDiag(r)); return; }
       c.on=true; c.space=''; SYNC.save();
       SYNC.say('wait','已开启 · 正在第一次同步');
       render();

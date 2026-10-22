@@ -171,6 +171,28 @@ const PATH = CLOUD.cosPath(SID);
     SYNC.cfg.cos.bucket === 'todo-1250000000' && SYNC.cfg.cos.region === 'ap-shanghai' &&
     SYNC.cfg.cos.secretId === 'AK1' && SYNC.cfg.cos.key === 'SK1');
 
+  console.log('\n【COS 的 404 不许再套用 Supabase 的文案】（2026-10-22 修）');
+  /* 以前 cosPut 抛的是 'HTTP404'，被 why() 命中 Supabase 那条「少了 /rest/v1」，
+     腾讯云用户根本没填过地址，看到这句完全无从下手。 */
+  ok('COS 的 404 讲的是桶名 / 地域',
+    /桶名|地域/.test(CLOUD.why('COS404')) && !/rest\/v1/.test(CLOUD.why('COS404')),
+    CLOUD.why('COS404').slice(0, 30));
+  ok('Supabase 的 404 才讲 /rest/v1', /rest\/v1/.test(CLOUD.why('HTTP404')));
+
+  global.fetch = async () => ({ status: 404, text: async () => '<Error>NoSuchBucket</Error>' });
+  let putErr = '';
+  try { await CLOUD.cosPut(cfg, SID, { todos: [] }, '2026-10-22 00:00'); }
+  catch (e) { putErr = e.message; }
+  ok('上传撞 404 → 报的是 COS404，不是 HTTP404', putErr === 'COS404', putErr);
+
+  global.fetch = async () => ({ status: 404, text: async () => '<Error>NoSuchKey</Error>' });
+  const get = await CLOUD.cosGet(cfg, SID);
+  ok('读取撞 404 仍算正常（文件还没建）', get === null, JSON.stringify(get));
+
+  ok('界面能拿到实际访问地址（COS 由桶名+地域拼出）',
+    CLOUD.at(cfg).indexOf('https://todo-1250000000.cos.ap-guangzhou') === 0 &&
+    CLOUD.at(cfg).indexOf('/daiban/') > 0, CLOUD.at(cfg));
+
   console.log('\n  合计 ' + pass + ' 项通过' + (fail ? '，' + fail + ' 项失败' : '') + '\n');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.log('  崩了：' + (e && e.message)); process.exit(1); });
