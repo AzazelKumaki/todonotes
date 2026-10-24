@@ -338,6 +338,67 @@ button.field:hover{background:#F8FAFC;border-color:var(--brand2)}
 .notes h3{font-size:15px;margin-bottom:8px;color:#0F172A}
 .notes code{background:#F1F5F9;padding:1px 5px;border-radius:4px;font-size:12px}
 
+/* ---------- 电脑版（宽窗口）布局 ----------
+   同一个文件在宽窗口里自动换成桌面形态：**左侧常驻导航 + 右侧主区**，不再挤在 390px 的手机壳里。
+   只在「宽屏 + 不是 APK」时生效 —— APK 里永远是手机形态（app-mode 那节在后面，同特异性后者胜）。
+   布局只靠 CSS grid 重排现成的四个区块（statusbar / domainbar / view / tabbar），不新增 DOM。 */
+@media (min-width:900px){
+  /* 铺满整个窗口 —— 宽屏下它不是「手机样子」，是正经的桌面软件：
+     外壳不再留白 / 不要圆角阴影。内容区仍自动居中限宽（见下面的 .view），
+     所以再宽的屏，一行标题也不会被拉到三米长。
+     ⚠️ 断点 900 必须跟下面的手机形态 `@media (max-width:899.98px)` **严丝合缝**：
+        两边写成同一个数时，正好 900px 会同时命中，谁在后面谁说了算，形态就飘了。 */
+  body:not(.app-mode){padding:0;display:block;background:var(--bg)}
+  /* 手机原型时代的「说明卡」在电脑上不需要了（完整说明在内容手册里） */
+  body:not(.app-mode) .notes{display:none}
+
+  body:not(.app-mode) .phone{width:100%;max-width:none;height:100vh;height:100dvh;
+    border-radius:0;box-shadow:none;display:grid;grid-template-columns:236px 1fr;grid-template-rows:auto 1fr}
+  /* 假状态栏（时钟 / 信号 / 电量）是手机外壳的道具，桌面没有它 */
+  body:not(.app-mode) .statusbar{display:none}
+
+  /* 左上：域切换器 */
+  body:not(.app-mode) .domainbar{padding:18px 14px 10px;border-right:1px solid var(--line)}
+  /* 左下：三 Tab 导航（常驻，不随二级页消失） */
+  body:not(.app-mode) .tabbar{height:auto;flex-direction:column;align-items:stretch;justify-content:flex-start;
+    padding:6px 14px 18px;border-right:1px solid var(--line);overflow-y:auto;overflow-x:hidden}
+  body:not(.app-mode) .tabcapsule{width:100%;height:auto;flex-direction:column;gap:4px;padding:6px;border-radius:16px}
+  body:not(.app-mode) .tab{flex:none;flex-direction:row;justify-content:flex-start;gap:10px;
+    height:46px;padding:0 14px;border-radius:12px;font-size:14px}
+  /* 药丸滑块竖排：横排时是 translateX（格宽），竖排改成 translateY（格高 46 + 间距 4） */
+  body:not(.app-mode) .pill-tab{top:6px;bottom:auto;left:6px;width:calc(100% - 12px);height:46px;
+    border-radius:12px;transform:translateY(calc(var(--i,0) * 50px))}
+  /* ⚠️ 只把**左侧 Tab 那块**药丸换成竖滑动画 —— 写 `.pill.mv` 会连横向的
+     「工作 / 生活」切换器（.pill-sw）一起命中，它一切换就会变成上下乱跳（2026-10-24 修） */
+  body:not(.app-mode) .pill-tab.mv{animation-name:pillmovev}
+
+  /* 右侧主区：内容自动居中限宽（宽屏下一条待办不该横跨一整屏） */
+  body:not(.app-mode) .view{grid-column:2;grid-row:1 / span 2;
+    padding:22px max(28px,calc((100% - 920px) / 2)) 32px}
+  body:not(.app-mode) .view::-webkit-scrollbar{width:10px}
+  body:not(.app-mode) .view::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:5px}
+  body:not(.app-mode) .view::-webkit-scrollbar-thumb:hover{background:#94A3B8}
+
+  /* 圆钮（收件箱）：桌面没有底栏，贴着右下角就行 */
+  body:not(.app-mode) .fab{right:22px;bottom:22px}
+  /* 弹窗：手机上 300px 是怕撑破屏幕，桌面放开一点 */
+  body:not(.app-mode) .modal{max-width:420px}
+  body:not(.app-mode) .ititle{font-size:16px}
+  body:not(.app-mode) .isub{font-size:12.5px}
+}
+/* ⚠️ 上面这个 `}` 是桌面 @media 的收口 —— 少了它，后面的 @media 会被**嵌套**进来，
+   嵌套的 media 是「并且」关系（≥900 且 ≤899.98 = 永远不成立），手机形态就彻底失效了 */
+@keyframes pillmovev{
+  from{transform:translateY(calc(var(--f,0) * 50px));background-color:var(--fc,var(--brand))}
+  to{transform:translateY(calc(var(--i,0) * 50px));background-color:var(--brand)}}
+/* 鼠标才有的反馈：只给**真的有鼠标**的设备（hover:hover）——
+   平板 / 触屏笔记本点一下会「粘住」悬停态，看着像那条被选中了 */
+@media (min-width:900px) and (hover:hover){
+  body:not(.app-mode) .item:hover{border-color:var(--brand2)}
+  body:not(.app-mode) .row:hover{border-color:var(--brand2);background:#FAFBFC}
+  body:not(.app-mode) .tab:hover:not(.on),body:not(.app-mode) .sw-half:hover:not(.on){color:var(--ink2)}
+}
+
 /* ---------- APK 真机模式（放在样式表末尾：同特异性时后者胜，才能盖住前面的原型规则） ----------
    同一个 index.html 两种形态：
    · 电脑上双击打开 = 原型（手机外壳 + 右侧说明卡，照旧）
@@ -357,7 +418,9 @@ body.app-mode .phone{width:100%;height:100%;border-radius:0;box-shadow:none;
   padding-top:min(var(--sysbar-top,env(safe-area-inset-top,0px)),96px);
   padding-bottom:min(var(--sysbar-bottom,env(safe-area-inset-bottom,0px)),48px)}
 body.app-mode .statusbar,body.app-mode .notes{display:none!important}
-@media (max-width:900px){
+/* 899.98 而不是 900：跟上面桌面形态的 `min-width:900px` 严丝合缝，
+   正好 900px 只会被下面这条命中，不会两套同时生效（原因见桌面那节的注释） */
+@media (max-width:899.98px){
   body{padding:0;display:block;background:var(--bg);width:100vw;
     height:100vh;height:100dvh;overflow:hidden;overscroll-behavior:none}
   .phone{width:100%;height:100%;border-radius:0;box-shadow:none;
@@ -1486,6 +1549,16 @@ function locationVerbose(){ modal('网页版没有版本概念','网页就是 `i
    之前只靠调用方传 keep，很多地方没传，于是点一下任何选项都被弹回顶部（V0.2 修） */
 let _lastPosKey='';
 let _lastMain=null;   /* 上一次渲染的「页面坐标」—— 用来判断页面切换方向（动效用） */
+/* 电脑版（宽窗口）判定：只有「宽屏 + 不是 APK 内」才算桌面形态。
+   桌面下左侧导航**常驻** —— 进二级页（详情 / 收件箱）也看得见，不像手机那样把底栏收掉。
+   CSS 里那套 grid 布局只认 `(min-width:900px)`，这里必须跟它同一个数，别两处对不上。 */
+let _deskState=null;
+function isDesktop(){
+  try{
+    if(document.body && document.body.classList.contains('app-mode')) return false;
+    return !!(window.matchMedia && window.matchMedia('(min-width:900px)').matches);
+  }catch(e){ return false; }   /* 测试 stub 里没有 matchMedia → 一律当手机，行为与旧版一致 */
+}
 function posKey(){
   return [S.tab, S.sub||'', S.detailId||'', S.day||'', S.inboxFrom||''].join('|');
 }
@@ -1512,8 +1585,10 @@ function render(keep){
   document.getElementById('phone').querySelectorAll('.fab').forEach(e=>e.remove());
 
   const isSub = !!S.sub;
-  tb.style.display = isSub ? 'none' : 'flex';
-  tb.innerHTML = isSub ? '' : tabbarHTML();
+  _deskState = isDesktop();   /* 顺手同步：resize 监听靠它判断「形态变没变」 */
+  const hideNav = isSub && !_deskState;   /* 桌面形态下导航常驻，二级页也不收 */
+  tb.style.display = hideNav ? 'none' : 'flex';
+  tb.innerHTML = hideNav ? '' : tabbarHTML();
   /* 域切换器 = 顶部固定栏（不随页面滚动消失）。「我的」页是灰色静态态（设置与域无关）；
      二级页（详情 / 收件箱 / 设置项）没有切换器，跟旧版一致 */
   const db=document.getElementById('domainbar');
@@ -2139,7 +2214,7 @@ function meHTML(){
       row(ic('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'),'回收站 · 30 天内可恢复','trash'))}
     ${g('偏好',
       row(ic('<path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 2v20M2 12h20" opacity=".35"/><circle cx="9" cy="9" r="1.6"/><circle cx="15" cy="9" r="1.6"/><circle cx="9" cy="15" r="1.6"/>'),'换配色 · 工作 / 生活各一套','theme')+
-      row(ic('<path d="M4 6h16M4 12h16M4 18h10"/>'),'分类管理 · 工作 4 / 生活 4','cats'))}
+      row(ic('<path d="M4 6h16M4 12h16M4 18h10"/>'),'分类管理 · 工作 / 生活 分开管','cats'))}
     ${g('其他',
       row(ic('<path d="M21 12a9 9 0 11-3-6.7"/><path d="M21 3v6h-6"/>'),'检查更新 · 当前 '+UPD.cur()
         + (UPD.st.checkedAt?' · 上次 '+esc(UPD.st.checkedAt.slice(5,16)):''),'update'))}
@@ -3779,6 +3854,18 @@ setInterval(()=>{ const d=fmtD(new Date()); if(d!==TODAY){ TODAY=d; render(true)
 setInterval(()=>{const d=new Date();document.getElementById('clock').textContent=d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');},1000);
 /* 网络回来的第一时间补传 */
 window.addEventListener('online',()=>{ SYNC.schedule(); });
+/* 窗口拖过 1000px（手机形态 ↔ 桌面形态）才重画；同一形态里拖着玩不重画
+   —— render 每次都会重置滚动位置，无谓重画会让正在看的地方跳走 */
+let _rsTimer=null;
+window.addEventListener('resize',function(){
+  clearTimeout(_rsTimer);
+  _rsTimer=setTimeout(function(){
+    const d=isDesktop();
+    if(d===_deskState) return;
+    _deskState=d;
+    try{ render(true); }catch(e){}
+  },150);
+});
 </script>
 </body>
 </html>
