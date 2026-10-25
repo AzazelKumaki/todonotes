@@ -11,8 +11,8 @@ android {
         // minSdk 29（安卓 10）起步：用 MediaStore 写「下载」目录不用申请任何系统权限
         minSdk 29
         targetSdk 36
-        versionCode 4
-        versionName "0.4"
+        versionCode 5
+        versionName "0.5"
     }
 
     // 自签名（发布/自用都用它），不用开发者账号、不用备案、0 费用

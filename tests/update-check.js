@@ -80,13 +80,16 @@ const sleep = ms => new Promise(r=>setTimeout(r,ms));
 
   console.log('\n【10】网页版也能检查更新（Release 里放了网页文件就要能对版本）');
   global.AppBridge = { isApp:()=>false };
-  global.fetch = async()=>({ok:true, json:async()=>rel('v0.5','待办清单-V0.5.apk')});
+  /* mock 一个**比当前版本更新**的 tag —— 不写死 0.5，升版不用改测试 */
+  const NV = 'v' + app.UPD.ver(app.APPVER).split('.').map((n, i) => i === 1 ? (+n + 1) : n).join('.');
+  global.fetch = async()=>({ok:true, json:async()=>rel(NV,'待办清单-'+NV.slice(1)+'.apk')});
   const b2 = phone.children.length;
   click('update');
   await sleep(40);
   const a2 = phone.children.slice(b2).map(c=>c.innerHTML||'').join('');
   ok('网页版也弹「有新版本」', /有新版本/.test(a2), (a2.match(/有新版本[^<]*/)||['（没找到）'])[0]);
-  ok('对比的是网页自己的版本号', /当前 0\.4/.test(a2), (a2.match(/当前[^·<]*/)||[''])[0]);
+  /* 版本号不写死 —— 跟着 APPVER 走，升版不用改测试 */
+  ok('对比的是网页自己的版本号', new RegExp('当前 '+app.UPD.ver(app.APPVER)).test(a2), (a2.match(/当前[^·<]*/)||[''])[0]);
   ok('网页版没有「下载并安装」按钮（电脑上装不了 APK）', !/updinstall/.test(a2));
   ok('给了「到发布页下载」兜底', /updpage/.test(a2));
   global.AppBridge = undefined;

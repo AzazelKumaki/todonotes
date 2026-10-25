@@ -54,7 +54,11 @@ module.exports = function load(){
        + 'sortList,dayHTML,itemHTML,listTodos,quadText,'
        /* V0.4 发版审查新增的导出：titleOf 兜底 / newId 发号 / catStyle 跨设备稳定 / 日期选择器年份 */
        + 'T,newId,titleOf,catStyle,catHash,openDatePicker,THEME_KEY,DEF_THEME,seed,'
-       + 'searchBarHTML,calFilterBarHTML,refreshSearchBar};';
+       + 'searchBarHTML,calFilterBarHTML,refreshSearchBar,'
+       /* V0.5 FR-501 批量操作 */
+       + 'inSel,selMode,selTodos,selVisibleIds,toggleSel,addDays,selTopHTML,selActBarHTML,openSelCat,'
+       /* V0.5 FR-503 重复待办补全 */
+       + 'recurObj,recurText,nextRecurDue,recurSpawn,recurSet,recurBox,recurMark,detailHTML,fmtSub,genRecur};';
   vm.runInThisContext(code, {filename:'inline.js'});
   /* V0.4 交付版起，新装应用是**空的**（不再预塞演示数据）。
      但测试脚本需要一个「已经用过一阵」的状态才测得动（排序 / 渲染 / 复盘都依赖有数据），

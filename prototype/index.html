@@ -108,6 +108,24 @@ body{font-family:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-s
 .item.done .isub{color:var(--ink4)}
 .item.done .qbar{opacity:.45}
 
+/* ---------- V0.5 FR-501 · 批量多选态 ---------- */
+/* 选中：整条描一圈主色 + 左边圆圈变实心打勾（这时圆圈不再代表「完成」，别误会 */
+.item.sel{box-shadow:inset 0 0 0 2px var(--brand)}
+.item.sel .circle{background:var(--brand);border-color:var(--brand)}
+.item.sel .circle::before{content:"";position:absolute;left:5px;top:3px;width:6px;height:10px;
+  border:2px solid #fff;border-top:0;border-left:0;transform:rotate(42deg)}
+.selbar{position:sticky;top:0;z-index:20;background:var(--bg);display:flex;align-items:center;gap:8px;
+  padding:8px 2px 10px;border-bottom:1px solid var(--line)}
+.selcount{font-size:14px;font-weight:600;color:var(--ink)}
+.sellink{background:none;border:none;font-family:inherit;font-size:14px;font-weight:500;
+  color:var(--brand);cursor:pointer;padding:6px 8px}
+/* 底部动作条：挂在 .phone 上，不进滚动容器，横跨整条底边 */
+.selact{position:absolute;left:0;right:0;bottom:0;z-index:45;display:flex;gap:8px;padding:10px 12px;
+  padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));background:#fff;border-top:1px solid var(--line)}
+.selbtn{flex:1;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--soft);
+  font-family:inherit;font-size:14px;font-weight:500;color:var(--ink);cursor:pointer}
+.selbtn.danger{color:#DC2626}
+
 /* ---------- 字段行 ---------- */
 .field{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;
   align-items:center;gap:12px}
@@ -462,7 +480,7 @@ body.app-mode .statusbar,body.app-mode .notes{display:none!important}
 </div>
 
 <script>
-const APPVER = 'V0.4（M4 · 更新与配色）';
+const APPVER = 'V0.5（M5 · 用得更省事）';
 
 /* ============ 运行环境认领：网页原型 vs 安卓 APK ============
    壳里打开（UA 带 DaibanApp 标记，或存在 AppBridge）→ body 加 app-mode：
@@ -1182,6 +1200,9 @@ const S = {
   q:'', fq:'', fcat:'', fst:'', qOpen:false,
   /* 日历页筛选：一整套**独立**的条件 + 范围，跟首页搜索互不相干（用户要求两屏断开） */
   calQ:'', calFq:'', calFcat:'', calFst:'', calScope:'month',
+  /* V0.5 FR-501 批量操作：**只在内存里**的多选态（null = 不在多选态，数组 = 选中的 id）。
+     不落库 ⇒ 不进备份 / 导出 / 云端，刷新页面自然消失。 */
+  sel:null,
 };
 
 /* ============ 配色 FR-402/403（V0.4：替换原「自定义背景图」）============
@@ -1280,7 +1301,7 @@ function fmtSub(t){
   else if(t.due===TODAY && t.time) p.push(t.time);
   else if(t.due) p.push(t.due.slice(5).replace('-','月')+'日');
   if(t.cat) p.push(t.cat);
-  return p.join(' · ')||'无时间 · 未归类';
+  return recurMark(t) + (p.join(' · ')||'无时间 · 未归类');
 }
 
 /* 排序（2026-10-21 改口径）：置顶 > **逾期组**（组内只按轻重缓急，不看逾期了几天）
@@ -1582,11 +1603,13 @@ function render(keep){
   else applyTheme(S.sub==='inbox' ? S.inboxFrom : S.domain);
   try{ _curBrand=(getComputedStyle(document.body).getPropertyValue('--brand')||'').trim(); }catch(e){}
   const v=document.getElementById('view'), tb=document.getElementById('tabbar');
-  document.getElementById('phone').querySelectorAll('.fab').forEach(e=>e.remove());
+  document.getElementById('phone').querySelectorAll('.fab,.selact').forEach(e=>e.remove());
 
   const isSub = !!S.sub;
+  const _multi = selMode();          /* V0.5 FR-501：多选态把底栏换成批量动作条 */
   _deskState = isDesktop();   /* 顺手同步：resize 监听靠它判断「形态变没变」 */
-  const hideNav = isSub && !_deskState;   /* 桌面形态下导航常驻，二级页也不收 */
+  /* 多选态也要收掉底栏（不然跟动作条叠在一起），进出多选态用 render 自动处理 */
+  const hideNav = (isSub && !_deskState) || _multi;
   tb.style.display = hideNav ? 'none' : 'flex';
   tb.innerHTML = hideNav ? '' : tabbarHTML();
   /* 域切换器 = 顶部固定栏（不随页面滚动消失）。「我的」页是灰色静态态（设置与域无关）；
@@ -1599,7 +1622,7 @@ function render(keep){
       db.innerHTML = S.tab==='me' ? switchNeutralHTML() : switchHTML();
     }
   }
-  v.innerHTML = isSub ? subHTML() : mainHTML();
+  v.innerHTML = (_multi ? selTopHTML() : '') + (isSub ? subHTML() : mainHTML());
   /* 页面切换进场动画（衔接动效 ②）：只看「页面坐标」变没变 —— tab / 二级页 / 域 / 聚焦。
      勾选完成这类原地更新坐标没变，不播整屏动画（只播条目自己的 fx）。 */
   const _main={tab:S.tab,sub:S.sub||'',detailId:S.detailId||'',day:S.day||'',
@@ -1622,7 +1645,8 @@ function render(keep){
     }
   }
   _lastMain=_main;
-  if(!isSub) fabHTML();
+  if(!isSub && !_multi) fabHTML();      /* 多选态下收件箱圆钮让位给底部动作条 */
+  if(_multi) selActBarHTML();
   /* 同一个页面内原地更新 → 保住滚动位置；换了页面（切 tab / 进出二级页 / 换条目）→ 回到顶部。
      显式传 keep=false 才会强制回顶（比如"新建分类"这类希望看到顶部的操作） */
   v.scrollTop = (keep===false) ? 0 : (_same ? _top : 0);
@@ -1883,15 +1907,93 @@ function genRecur(){
   } else {
     for(let i=1;i<=3;i++){ const x=new Date(base); x.setDate(x.getDate()+r.every*i); dates.push(fmtD(x)); }
   }
+  /* ⚠️ 一次排出来的这三条共享同一个 rid（同一条循环规则的「批次号」）：
+     续期时靠它找到这一批里排得最远的那条，再往后排 —— 否则排出来的日期
+     会跟已经排好的撞车（一勾完成就多出一条重复的）。 */
+  const rule={mode:r.mode,time:r.time,imp:r.imp,urg:r.urg,cat:r.cat,on:true,
+    rid:'r'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)};
+  if(r.mode==='week') rule.wd=r.wd; else if(r.mode==='month') rule.md=r.md; else rule.every=r.every;
   dates.forEach(dt=>{
     todos.push(T({title:r.title.trim(),due:dt,time:r.time,imp:r.imp,urg:r.urg,
-      cat:r.cat,domain:S.domain,remark:r.title.trim(),recur:true}));
+      cat:r.cat,domain:S.domain,remark:r.title.trim(),recur:{...rule}}));
   });
   document.querySelectorAll('.modal-mask').forEach(m=>m.remove());
   const name=r.title.trim(), n=dates.length, first=dates[0]||'';
   S._recur=null; S._recurFocused=false;   /* 下次再打开要重新把光标落进标题框 */
-  toast(`已创建「${name}」· 先排了 ${n} 次，从 ${first.slice(5)} 开始`);
+  toast(`已创建「${name}」· 先排了 ${n} 次，从 ${first.slice(5)} 开始 · 每次勾完自动续下一次`);
   render();
+}
+
+/* ============ V0.5 FR-503 · 重复待办补全 ============
+   老版本把 t.recur 存成布尔 true —— 那只是个「排了三次」的标记，勾完就没了。
+   现在升级成规则对象：{mode:'week'|'month'|'every', wd?, md?, every?, time?, on:true}
+   ⚠️ 老数据 recur===true 必须能认出来：**按一次性处理，不再续**（见 recurObj）。 */
+/* 宽松：只要是个规则对象就返回（**不管暂停没暂停**）—— 详情页要靠它把「继续」按钮画出来 */
+function recurRule(t){
+  const r=t&&t.recur;
+  return (r && typeof r==='object' && r.mode) ? r : null;
+}
+/* 严格：规则存在且开着 —— 只有它决定「勾完要不要自动续」「列表挂不挂 🔁」 */
+function recurObj(t){
+  const r=recurRule(t);
+  return (r && r.on) ? r : null;
+}
+function recurText(t){
+  const r=recurRule(t); if(!r) return '';
+  const wd=['一','二','三','四','五','六','日'];
+  const base = r.mode==='week' ? ('每周'+wd[Math.max(0,Math.min(6,(r.wd||1)-1))])
+             : r.mode==='month' ? ('每月'+(r.md||1)+'号')
+             : ('每隔'+(r.every||1)+'天');
+  return base + (r.on?'':' · 已暂停');
+}
+/* 按规则算出「下一次」的日期。from = 从哪天往后找（一般是刚完成那条的 due，利于补上漏勾的空档） */
+function nextRecurDue(r, from){
+  const base = from ? new Date(String(from).slice(0,10)+'T00:00:00')
+                    : new Date(TODAY+'T00:00:00');
+  if(isNaN(base.getTime())) return '';
+  if(r.mode==='week'){
+    const cur=base.getDay()||7, target=Math.max(1,Math.min(7,r.wd||1));
+    let diff=(target-cur+7)%7; if(diff===0) diff=7;   /* 当天就是这一天 → 排下一周 */
+    const x=new Date(base); x.setDate(x.getDate()+diff); return fmtD(x);
+  }
+  if(r.mode==='month'){
+    /* 与「循环安排」创建时同一套口径（genRecur）：**不跳过小月**，
+       每月 31 号碰上 2 月 → 取 2 月的最后一天（28 / 29），不是直接跳到 3 月 */
+    const md=Math.max(1,Math.min(31,r.md||1));
+    const m=base.getMonth()+1;                 /* 下个月（>11 时 JS 自动进位到次年） */
+    const y=base.getFullYear();
+    const last=new Date(y,m+1,0).getDate();
+    const x=new Date(y,m,Math.min(md,last));
+    return fmtD(x);
+  }
+  const step=Math.max(1,+r.every||1);
+  const x=new Date(base); x.setDate(x.getDate()+step); return fmtD(x);
+}
+/* 勾完成 → 按规则续出下一次（副本不带完成状态，也不会重复续已删的） */
+function recurSpawn(t){
+  const r=recurObj(t); if(!r || !r.on) return null;
+  /* 从「这一批里排得最远的那条」往后排 —— 已经在列表里的那几次不能再排一遍 */
+  let far=t.due||'';
+  if(r.rid) todos.forEach(x=>{ if(x!==t && !x.deleted && x.recur && x.recur.rid===r.rid && (x.due||'')>far) far=x.due; });
+  let due=nextRecurDue(r, far||TODAY); if(!due) return null;
+  /* 兜底：万一算出来那天已经有一条同标题的（比如自己手加过），就继续往后顺 */
+  let guard=0;
+  while(guard++<40 && todos.some(x=>!x.deleted && x!==t && x.title===t.title && x.domain===t.domain && (x.due||'')===due)){
+    const nd=nextRecurDue(r, due); if(!nd) break; due=nd;
+  }
+  const n=T({title:t.title, remark:t.remark, due:due, time:r.time!==undefined?r.time:(t.time||''),
+    imp:t.imp, urg:t.urg, cat:t.cat, domain:t.domain, recur:{...r}});
+  todos.push(n);
+  return n;
+}
+/* 详情页改规则用：暂停 / 继续 / 关闭 */
+function recurSet(on){
+  const t=todos.find(x=>x.id===S.detailId); if(!t) return;
+  /* 用宽松判定：暂停着的规则也要能被「继续」和「关闭」，不然点不动 */
+  const r=recurRule(t); if(!r) return;
+  if(on===null){ t.recur=null; }        /* 关闭 = 变回普通的一条 */
+  else { r.on=!!on; }
+  render(true);
 }
 
 /* ============ 弹窗 ============ */
@@ -1965,14 +2067,100 @@ function parseHTML(){
 function itemHTML(t){
   /* 刚被勾选 / 取消完成的那一条带 fx 类，播放圆圈 pop + 整条落定的动效 */
   const fx=(S._fx && S._fx.id===t.id)?(S._fx.done?'fx-on':'fx-off'):'';
-  return `<button class="item ${t.done?'done':''} ${fx}" data-act="open" data-v="${t.id}">
-    <span class="circle ${t.done?'done':''}" data-act="toggle" data-v="${t.id}"></span>
+  /* V0.5 FR-501：多选态下整条描边 + 左边圆圈打勾（圆圈这时不再切「完成」，点它就是选中/取消） */
+  const sel=inSel(t.id);
+  return `<button class="item ${t.done?'done':''} ${fx} ${sel?'sel':''}" data-act="open" data-v="${t.id}">
+    <span class="circle ${sel?'sel':(t.done?'done':'')}" data-act="${sel?'open':'toggle'}" data-v="${t.id}"></span>
     <span class="qbar" style="background:${t.done?'var(--q4)':qcolor(t)}"></span>
     <span class="itxt">
       <span class="ititle">${t.pinned?'📌 ':''}${esc(titleOf(t))}</span>
       <span class="isub">${esc(fmtSub(t))}</span>
     </span>
   </button>`;
+}
+
+/* ============ V0.5 FR-501 · 批量操作 ============
+   入口：**长按条目不动** 450ms 进多选态（分类管理那套是「长按 + 拖动 = 排序」，
+   选择器是 .cat-row，跟这里的 .item 谁也不碰谁）。
+   四个动作：标完成 / 改分类 / 顺延到明天 / 删除（软删，进回收站）。
+   三条硬边界：① 已完成的条目也允许选中　② 改分类跨域不生效（分类挂在归属下）
+             ③ 只有待办条目进多选态，分类管理不做批量。 */
+function inSel(id){ return Array.isArray(S.sel) && S.sel.indexOf(+id)>=0; }
+function selMode(){ return Array.isArray(S.sel); }
+/* 选中的条目（已排除被删的）—— 四个动作都从这里取，别各处自己 filter */
+function selTodos(){
+  if(!selMode()) return [];
+  return todos.filter(t=>!t.deleted && S.sel.indexOf(t.id)>=0);
+}
+/* 当前屏幕上真正排着的条目 = 「全选」的范围。
+   取 DOM 而不是再算一遍池子：首页 / 收件箱 / 某天明细的取法各不相同，看得见的就是能选的。 */
+function selVisibleIds(){
+  const arr=[];
+  try{
+    document.querySelectorAll('.item[data-act="open"]').forEach(el=>{
+      const id=+el.dataset.v; if(arr.indexOf(id)<0) arr.push(id);
+    });
+  }catch(e){}
+  return arr;
+}
+function toggleSel(id){
+  if(!selMode()) return;
+  const i=S.sel.indexOf(+id);
+  if(i>=0) S.sel.splice(i,1); else S.sel.push(+id);
+  render(true);
+}
+/* 日期 ±N 天：'YYYY-MM-DD' 进、'YYYY-MM-DD' 出。传空字符串表示「没填日期」 */
+function addDays(s,n){
+  const d = s ? new Date(String(s).slice(0,10)+'T00:00:00') : new Date();
+  if(isNaN(d.getTime())) return '';
+  d.setDate(d.getDate()+n);
+  return fmtD(d);
+}
+/* 顶部操作条：吸在列表顶上滚不丢（sticky），不用再为了放它改整体布局 */
+function selTopHTML(){
+  return `<div class="selbar">
+      <span class="selcount">已选 ${S.sel.length} 条</span>
+      <span style="flex:1"></span>
+      <button class="sellink" data-act="selall">全选</button>
+      <button class="sellink" data-act="selcancel">取消</button>
+    </div>`;
+}
+/* 底部四个动作：像悬浮按钮那样挂在 .phone 上（不进滚动容器），横跨整条底边 */
+function selActBarHTML(){
+  const phone=document.getElementById('phone'); if(!phone) return;
+  const old=phone.querySelector('.selact'); if(old) old.remove();
+  const bar=document.createElement('div');
+  bar.className='selact';
+  bar.innerHTML=
+    `<button class="selbtn" data-act="seldone">标完成</button>
+     <button class="selbtn" data-act="selcat">改分类</button>
+     <button class="selbtn" data-act="seltmr">顺延明天</button>
+     <button class="selbtn danger" data-act="seldel">删除</button>`;
+  phone.appendChild(bar);
+}
+/* 改分类：只列当前归属下的分类 —— 跨域的那几条会被跳过，不硬改 */
+function openSelCat(){
+  const list=selTodos();
+  if(!list.length){ toast('还没选任何条目'); return; }
+  const p=document.getElementById('phone'); if(!p) return;
+  document.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+  const crossN=list.filter(t=>t.domain!==S.domain).length;
+  const cats=CATS[S.domain]||[];
+  const d=document.createElement('div');
+  d.className='modal-mask'; d.dataset.act='closemodal';
+  d.innerHTML=`<div class="modal" data-act="noop">
+      <div class="modal-t">改分类</div>
+      <div class="modal-b">选中的 <b>${list.length}</b> 条${
+        crossN?`（其中 ${crossN} 条在另一个归属下，改不动）`:''}，点一个分类就全部移过去</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${cats.map(c=>`<button class="field" data-act="selcatgo" data-v="${esc(c)}">
+          <span class="fval">${esc(c)}</span><span class="fact">▾</span></button>`).join('')}
+        <button class="field" data-act="selcatgo" data-v="">
+          <span class="fval" style="color:var(--ink4)">不分类</span><span class="fact">▾</span></button>
+      </div>
+      <div class="btnrow"><button class="btn ghost" data-act="closemodal">取消</button></div>
+    </div>`;
+  p.appendChild(d);
 }
 
 /* ============ 收件箱 A4（配色随进入时的域） ============ */
@@ -2086,6 +2274,32 @@ function dayHTML(){
 }
 
 /* ============ B3 待办详情 ============ */
+/* V0.5 FR-503：详情页里的「重复」一栏 —— 有规则才显示。
+   三个开关一次只给一个动作，不做一堆选项让人挑（短句 + 按钮，跟别处一致） */
+function recurBox(t){
+  const r=recurRule(t); if(!r) return '';      /* 暂停着的也要显示，否则没法再点「继续」 */
+  return `<div class="field" style="flex-direction:column;align-items:stretch;gap:8px">
+      <span style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:15px">🔁</span>
+        <span class="fname" style="width:auto">重复 · ${esc(recurText(t))}</span>
+      </span>
+      <span style="display:flex;gap:8px">
+        ${r.on
+          ? `<button class="btn ghost" style="flex:1" data-act="recuron" data-v="0">暂停</button>`
+          : `<button class="btn" style="flex:1" data-act="recuron" data-v="1">继续</button>`}
+        <button class="btn ghost" style="flex:1;color:#DC2626" data-act="recuroff">不再重复</button>
+      </span>
+      <span class="hint" style="padding:0">${r.on
+        ? '标完成后自动排出下一次，做过的这条留着不删'
+        : '已暂停 —— 就算标完成也不会再排下一次'}</span>
+    </div>`;
+}
+/* 列表里的循环标记：只给「规则还开着」的挂一个符号，暂停了就不挂（列表尽量干净） */
+function recurMark(t){
+  const r=recurObj(t);
+  return (r && r.on) ? '🔁 ' : '';
+}
+
 function detailHTML(){
   const t=todos.find(x=>x.id===S.detailId); if(!t) return '';
   /* 每个字段独立判断是否"已设置"：imp/urg 用 null 表示没填过，不能拿标题有没有值来代替 */
@@ -2110,6 +2324,7 @@ function detailHTML(){
       ${f('due','完成时间',t.due?t.due.slice(5).replace('-','月')+'日'+(t.time?' '+t.time:''):'')}
       ${f('domain','归属',t.domain?(t.domain==='work'?'工作':'生活'):'')}
       ${f('cat','分类',t.cat)}
+      ${recurBox(t)}
       <div class="field" style="flex-direction:column;align-items:stretch;gap:6px">
         <span class="fname" style="width:auto">备注 · 原始输入 · 不改写</span>
         <span style="font-size:13px;line-height:19px;color:var(--ink)">${esc(t.remark)||'（空）'}</span>
@@ -3185,13 +3400,22 @@ function handleAct(e){
     const t=todos.find(x=>x.id==v); if(t){
       t.done=!t.done;
       t.doneAt = t.done ? nowStamp() : null;   /* M1：真实系统时间，不再取硬编码日期 */
+      /* V0.5 FR-503：这条带着重复规则 → 标完成后立刻续出下一次（一次只续一条，不会雪崩） */
+      let next=null;
+      if(t.done) next=recurSpawn(t);
       S._fx={id:t.id,done:t.done};             /* 刚动过的这条，重画后播勾选动效（动效 ④） */
       render(true);
+      if(next) toast('已排下一次 · '+next.due.slice(5).replace('-','月')+'日');
     }
     return;
   }
   /* 弹窗里点条目 → 关掉弹窗再进详情（否则详情被弹窗盖着看不见） */
   if(act==='open'){
+    /* 多选态：点条目（含左边圆圈）只是「选中 / 取消选中」，不进详情 */
+    if(selMode()){
+      if(S._suppressClick) return;      /* 长按刚触发过，别把它当成一次点击又反选回去 */
+      toggleSel(+v); return;
+    }
     document.querySelectorAll('.modal-mask').forEach(m=>m.remove());
     S.sub='detail'; S.detailId=+v; render(); return;
   }
@@ -3218,6 +3442,46 @@ function handleAct(e){
   if(act==='inbox'){ S.inboxFrom=S.domain; S.sub='inbox'; render(); return; }
   if(act==='day'){ S.day=v; S.sub='day'; render(); return; }
   if(act==='back'){ S.sub=null; render(); return; }
+
+  /* ===== V0.5 FR-501 批量操作：顶部两个 + 底部四个 ===== */
+  if(act==='selcancel'){ S.sel=null; render(true); return; }
+  if(act==='selall'){
+    const ids=selVisibleIds();
+    const allOn = ids.length>0 && ids.every(id=>S.sel.indexOf(id)>=0);
+    S.sel = allOn ? [] : ids;      /* 已经全选了再点一次 = 全部取消 */
+    render(true); return;
+  }
+  if(act==='seldone'){
+    const list=selTodos(); if(!list.length){ toast('还没选任何条目'); return; }
+    /* 选中的全是已完成 → 这次按「取消完成」处理；否则统一标完成。
+       不做「逐条看状态分别反转」—— 那样点一次出来的是两种结果的混合，没法预期 */
+    const rollback=list.every(t=>t.done);
+    list.forEach(t=>{ t.done=!rollback; t.doneAt=t.done?nowStamp():null; });
+    toast(rollback?('已取消完成 · '+list.length+' 条'):('已完成 · '+list.length+' 条'));
+    S.sel=null; render(); return;
+  }
+  if(act==='seltmr'){
+    const list=selTodos(); if(!list.length){ toast('还没选任何条目'); return; }
+    /* 只改 due，不动 time（PRD 验收项）；原来没填日期的 → 排到明天 */
+    list.forEach(t=>{ t.due = t.due ? addDays(t.due,1) : addDays('',1); });
+    toast('已顺延到明天 · '+list.length+' 条');
+    S.sel=null; render(); return;
+  }
+  if(act==='seldel'){
+    const list=selTodos(); if(!list.length){ toast('还没选任何条目'); return; }
+    list.forEach(t=>{ t.deleted=true; t.deletedAt=nowStamp(); });   /* 软删，回收站里能捞回来 */
+    toast('已删除 '+list.length+' 条 · 30 天内可恢复');
+    S.sel=null; render(); return;
+  }
+  if(act==='selcat'){ openSelCat(); return; }
+  if(act==='selcatgo'){
+    document.querySelectorAll('.modal-mask').forEach(m=>m.remove());
+    const list=selTodos(); let n=0;
+    /* 分类挂在归属（工作 / 生活）底下，跨域的那几条跳过不动 —— 硬规则，不弹错 */
+    list.forEach(t=>{ if(t.domain!==S.domain) return; t.cat=v||''; n++; });
+    toast(n ? ('已改分类 · '+n+' 条') : '这几条都在另一个归属下，改不动');
+    S.sel=null; render(); return;
+  }
   if(act==='cloud'||act==='ai'||act==='cats'||act==='bak'){
     S.sub=act; render();
     /* V0.3：进设置页就自己连一次 —— 地址/密钥/口令都是存下来的，不用重新填，
@@ -3396,6 +3660,9 @@ function handleAct(e){
   if(act==='rcimp'){ syncRecur(); S._recur.imp=!S._recur.imp; openRecur(); return; }
   if(act==='rcurg'){ syncRecur(); S._recur.urg=!S._recur.urg; openRecur(); return; }
   if(act==='rccat'){ syncRecur(); S._recur.cat=(S._recur.cat===v?null:v); openRecur(); return; }
+  /* V0.5 FR-503：详情页里的三个开关 —— 1=继续 / 0=暂停 / off=彻底变回普通条 */
+  if(act==='recuron'){ recurSet(v==='0'?false:true); toast(v==='0'?'已暂停 · 不会再自动排下一次':'已继续 · 每次勾完自动续'); return; }
+  if(act==='recuroff'){ recurSet(null); toast('已关闭重复 · 这条变成普通待办'); return; }
   if(act==='rcsave'){ genRecur(); return; }
   if(act==='trash'){S.sub='trash';render();return;}
   /* V0.4 FR-406 搜索 / 筛选：同一个条件再点一次 = 取消 */
@@ -3725,6 +3992,8 @@ document.addEventListener('focusin',e=>{
 });
 /* Esc 收起键盘 → 回到 A1 */
 document.addEventListener('keydown',e=>{
+  /* V0.5 FR-501：多选态下 Esc = 退出（排在最前面，免得先去收输入框） */
+  if(e.key==='Escape' && selMode()){ S.sel=null; render(true); return; }
   if(e.key==='Escape' && S.focused){ S.focused=false; render(); }
   /* V0.4 FR-406：Esc 也能一步清掉搜索和筛选 */
   /* Esc = 收起筛选（等价于点框外）；已经收起了再按一次 = 连条件一起清掉 */
@@ -3742,6 +4011,32 @@ document.addEventListener('keydown',e=>{
    to = 指针越过中线的行数（-1 表示在最顶上）。插在「第 to 行之后」。
    因为先删后插，**往上拖的时候目标索引要少算一位**，否则会落到错误的一侧：
    拖 C 到 A、B 中间，老算法得到 [C,A,B]，正确应该是 [A,C,B]。 */
+/* ===== V0.5 FR-501：待办条目「长按不动」450ms 进多选态 =====
+   ① 移动超过 8px 就作废 —— 滑列表时手指随便停一下不该误触发
+   ② 触发后压住紧接着的那次 click，否则刚进多选就被当成「点条目」又反选回去
+   ③ 选择器是 .item，跟分类管理的 .cat-row（长按 + 拖动 = 排序）各管一段，互不干扰 */
+let _pressT=null,_pressPt=null;
+function _endPress(){ if(_pressT){ clearTimeout(_pressT); _pressT=null; } _pressPt=null; }
+document.addEventListener('pointerdown',e=>{
+  if(selMode()) return;
+  let it=null;
+  try{ it=e.target.closest('.item[data-act="open"]'); }catch(x){}
+  if(!it) return;
+  _pressPt={x:e.clientX,y:e.clientY};
+  _pressT=setTimeout(()=>{
+    _pressT=null; _pressPt=null;
+    S.sel=[+it.dataset.v];
+    S._suppressClick=true; setTimeout(()=>{ S._suppressClick=false; },320);
+    render(true);
+  },450);
+},{passive:true});
+document.addEventListener('pointerup',_endPress,{passive:true});
+document.addEventListener('pointercancel',_endPress,{passive:true});
+document.addEventListener('pointermove',e=>{
+  if(!_pressT||!_pressPt) return;
+  if(Math.abs(e.clientX-_pressPt.x)>8||Math.abs(e.clientY-_pressPt.y)>8) _endPress();
+},{passive:true});
+
 let _dt=null,_drag=null;
 function catRows(domain){
   return [...document.querySelectorAll('.cat-row')].filter(r=>r.dataset.domain===domain);
